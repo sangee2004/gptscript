@@ -1,4 +1,4 @@
-# GPTScript
+# GPTScript Modified
 
 [![Discord](https://img.shields.io/discord/1204558420984864829?label=Discord)](https://discord.gg/9sSf4UyAMC)
 
