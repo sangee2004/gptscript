@@ -1,3 +1,3 @@
-Name: Current Date and Time
+Name: File Manipulation
 Description: File manipulations like read file , write file and list files
 Tools: sys.read, sys.write, sys.ls
