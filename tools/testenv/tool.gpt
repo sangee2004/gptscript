@@ -1,0 +1,4 @@
+Name: mytestpython
+Description: Print the content
+param: prompt: content to print
+#!/usr/bin/env python3 ${GPTSCRIPT_TOOL_DIR}/mytest.py
