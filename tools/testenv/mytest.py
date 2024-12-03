@@ -1,7 +1,7 @@
 import os
 
-actual_key = os.getenv('PROMPT')
-actual_key1 = os.environ['PROMPT']
+prompt = os.getenv('PROMPT')
+env_var = os.environ['MY_ENV']
 
-print(actual_key)
-print(actual_key1)
+print(prompt)
+print(env_var)
