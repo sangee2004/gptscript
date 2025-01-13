@@ -1,0 +1,3685 @@
+{
+    "items": [
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "test2",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-13T19:41:21Z"
+            },
+            "spec": {
+                "image": "sangeetha/myfirstacorn:v0.0.1"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-test2-3d1222da.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "test2-acorn-ff806458",
+                "staged": {
+                    "appImage": {
+                        "id": "index.docker.io/sangeetha/myfirstacorn:v0.0.1",
+                        "name": "sangeetha/myfirstacorn:v0.0.1",
+                        "digest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                        "acornfile": "args: {\n\tnewtext: \"hello1\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.0-rc2-5-g407ca5d6+407ca5d6",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "index.docker.io/sangeetha/myfirstacorn:v0.0.1",
+                    "name": "sangeetha/myfirstacorn:v0.0.1",
+                    "digest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                    "acornfile": "args: {\n\tnewtext: \"hello1\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.0-rc2-5-g407ca5d6+407ca5d6",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG8x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "3 container restarts"
+                            ],
+                            "configHash": "4685aa082381019f80eb0c94fa8ba9815852d3527eacc4ce0123b66fba2b5941",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 3
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-test2-3d1222da.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:33Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:33Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:41:23Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "test1",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-13T19:40:53Z"
+            },
+            "spec": {
+                "image": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-test1-3a70c44e.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "test1-acorn-30a53627",
+                "staged": {
+                    "appImage": {
+                        "id": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "name": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "digest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.1+6a26e9bf",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "name": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "digest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.1+6a26e9bf",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG80",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "3 container restarts"
+                            ],
+                            "configHash": "c20e2395fee33255dd3b15261e5403cce2ebfd8876ffe10f4bb8439664ca8655",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 3
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-test1-3a70c44e.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:55Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:55Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-13T19:40:53Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "mytestnew123",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-08T18:35:49Z"
+            },
+            "spec": {
+                "image": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-mytestnew123-fa569f51.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "mytestnew123-acorn-c1d6a00a",
+                "staged": {
+                    "appImage": {
+                        "id": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "name": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "digest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                        "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.1+6a26e9bf",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "name": "4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "digest": "sha256:4becf8592acc796a8b581486cc0f98029984df1c5a889737d8a2a427eb76bbc9",
+                    "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.1+6a26e9bf",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG80",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "3 container restarts"
+                            ],
+                            "configHash": "c20e2395fee33255dd3b15261e5403cce2ebfd8876ffe10f4bb8439664ca8655",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 3
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-mytestnew123-fa569f51.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:50Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:50Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-08T18:35:49Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "hello1",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-05T21:04:00Z"
+            },
+            "spec": {
+                "image": "4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-hello1-94b38f12.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "hello1-acorn-1ef55178",
+                "staged": {
+                    "appImage": {
+                        "id": "4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                        "name": "4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                        "digest": "sha256:4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                        "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.1+6a26e9bf",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                    "name": "4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                    "digest": "sha256:4d4d5d25b18a014590bd600be8506358e3f927465d4e5a59df2046e543e8ffdf",
+                    "acornfile": "args: {\n\tnewtext: \"hello4\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.1+6a26e9bf",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG80",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "5 container restarts"
+                            ],
+                            "configHash": "c20e2395fee33255dd3b15261e5403cce2ebfd8876ffe10f4bb8439664ca8655",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 5
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-hello1-94b38f12.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:01Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:01Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:04:00Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "hello",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-05T21:03:21Z"
+            },
+            "spec": {
+                "image": "2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                "columns": {
+                    "healthy": "0",
+                    "upToDate": "0",
+                    "message": "(container: app): waiting for service to be created [db], waiting for service to be ready [db]; (service: db): acorn [hello.db] is not ready",
+                    "endpoints": "http://app-hello-7809e50d.local.oss-acorn.io"
+                },
+                "namespace": "hello-acorn-426b5270",
+                "staged": {
+                    "appImage": {
+                        "id": "2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                        "name": "2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                        "digest": "sha256:2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                        "acornfile": "services: db: {\n\timage: \"ghcr.io/acorn-io/mongodb-external:v#.#.#\"\n}\n\ncontainers: {\n\tapp: {\n\t\tbuild: {\n\t\t\tcontext:    \".\"\n\t\t\tdockerfile: \"./Dockerfile\"\n\t\t\ttarget:     \"dev\"\n\t\t}\n\t\tconsumes: [\"db\"]\n\t\tports: publish: \"8000/http\"\n\t\tenv: {\n\t\t\tDB_HOST:  \"@{service.db.address}\"\n\t\t\tDB_NAME:  \"@{service.db.data.dbName}\"\n\t\t\tDB_PROTO: \"@{service.db.data.proto}\"\n\t\t\tDB_USER:  \"@{service.db.secrets.user.username}\"\n\t\t\tDB_PASS:  \"@{service.db.secrets.user.password}\"\n\t\t\ttest1:  \"value1\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "app": {
+                                    "image": "sha256:cd621b4d1c4c130bb4cb0c0cfa1f76ab368eee460f4194b62d512317dde09420"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "build": {
+                                            "context": ".",
+                                            "dockerfile": "./Dockerfile",
+                                            "target": "dev"
+                                        }
+                                    },
+                                    "imageKey": "app"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {
+                            "remotes": [
+                                "git@github.com:acorn-io/mongodb-external.git"
+                            ],
+                            "revision": "d52f4d2c96520193dba37512073efeb2e9e97296",
+                            "modified": true,
+                            "untracked": true,
+                            "acornfile": "examples/Acornfile",
+                            "buildContext": "examples"
+                        },
+                        "version": {
+                            "runtimeVersion": "v0.10.1+6a26e9bf",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                    "name": "2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                    "digest": "sha256:2c152bfbb6a0d7f3379db9cbd9c8413a6a16d54d795c664aec56c53fafce3363",
+                    "acornfile": "services: db: {\n\timage: \"ghcr.io/acorn-io/mongodb-external:v#.#.#\"\n}\n\ncontainers: {\n\tapp: {\n\t\tbuild: {\n\t\t\tcontext:    \".\"\n\t\t\tdockerfile: \"./Dockerfile\"\n\t\t\ttarget:     \"dev\"\n\t\t}\n\t\tconsumes: [\"db\"]\n\t\tports: publish: \"8000/http\"\n\t\tenv: {\n\t\t\tDB_HOST:  \"@{service.db.address}\"\n\t\t\tDB_NAME:  \"@{service.db.data.dbName}\"\n\t\t\tDB_PROTO: \"@{service.db.data.proto}\"\n\t\t\tDB_USER:  \"@{service.db.secrets.user.username}\"\n\t\t\tDB_PASS:  \"@{service.db.secrets.user.password}\"\n\t\t\ttest1:  \"value1\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "app": {
+                                "image": "sha256:cd621b4d1c4c130bb4cb0c0cfa1f76ab368eee460f4194b62d512317dde09420"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "build": {
+                                        "context": ".",
+                                        "dockerfile": "./Dockerfile",
+                                        "target": "dev"
+                                    }
+                                },
+                                "imageKey": "app"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {
+                        "remotes": [
+                            "git@github.com:acorn-io/mongodb-external.git"
+                        ],
+                        "revision": "d52f4d2c96520193dba37512073efeb2e9e97296",
+                        "modified": true,
+                        "untracked": true,
+                        "acornfile": "examples/Acornfile",
+                        "buildContext": "examples"
+                    },
+                    "version": {
+                        "runtimeVersion": "v0.10.1+6a26e9bf",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "app": {
+                            "image": "sha256:cd621b4d1c4c130bb4cb0c0cfa1f76ab368eee460f4194b62d512317dde09420",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "./Dockerfile",
+                                "target": "dev"
+                            },
+                            "environment": [
+                                {
+                                    "name": "DB_HOST",
+                                    "value": "@{service.db.address}",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "DB_NAME",
+                                    "value": "@{service.db.data.dbName}",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "DB_PASS",
+                                    "value": "@{service.db.secrets.user.password}",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "DB_PROTO",
+                                    "value": "@{service.db.data.proto}",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "DB_USER",
+                                    "value": "@{service.db.secrets.user.username}",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test1",
+                                    "value": "value1",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 8000
+                                }
+                            ],
+                            "probes": null,
+                            "dependencies": [
+                                {
+                                    "targetName": "db"
+                                }
+                            ],
+                            "metrics": {}
+                        }
+                    },
+                    "services": {
+                        "db": {
+                            "image": "ghcr.io/acorn-io/mongodb-external:v#.#.#",
+                            "build": {
+                                "originalImage": "ghcr.io/acorn-io/mongodb-external:v#.#.#"
+                            }
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "app": {
+                            "state": "waiting",
+                            "transitioningMessages": [
+                                "waiting for service to be created [db]",
+                                "waiting for service to be ready [db]"
+                            ],
+                            "configHash": "cf087fcc096867f2eb74c6127bd64f7560fbdc6f98d7696d4ac336499b01828b",
+                            "dependencies": {
+                                "db": {
+                                    "serviceType": "service"
+                                }
+                            },
+                            "expressionErrors": [
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "service",
+                                        "name": "db"
+                                    },
+                                    "expression": "service.db.address"
+                                },
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "service",
+                                        "name": "db"
+                                    },
+                                    "expression": "service.db.data.dbName"
+                                },
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "service",
+                                        "name": "db"
+                                    },
+                                    "expression": "service.db.secrets.user.password"
+                                },
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "service",
+                                        "name": "db"
+                                    },
+                                    "expression": "service.db.data.proto"
+                                },
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "service",
+                                        "name": "db"
+                                    },
+                                    "expression": "service.db.secrets.user.username"
+                                }
+                            ]
+                        }
+                    },
+                    "services": {
+                        "db": {
+                            "state": "not ready",
+                            "upToDate": true,
+                            "defined": true,
+                            "transitioningMessages": [
+                                "acorn [hello.db] is not ready"
+                            ],
+                            "configHash": "999ee773840437cef0e1434cc110fc92ca77a12e240c09264277c5090447d510",
+                            "serviceAcornName": "hello.db"
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "app",
+                            "targetPort": 8000,
+                            "address": "app-hello-7809e50d.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ],
+                    "loginRequired": true
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "InProgress",
+                        "message": "(container: app): waiting for service to be created [db], waiting for service to be ready [db]",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "InProgress",
+                        "message": "(service: db): acorn [hello.db] is not ready",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "InProgress",
+                        "message": "(container: app): waiting for service to be created [db], waiting for service to be ready [db], (service: db): acorn [hello.db] is not ready",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "app": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "app": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "provisioning",
+                    "transitioningMessages": [
+                        "(container: app): waiting for service to be created [db], waiting for service to be ready [db]",
+                        "(service: db): acorn [hello.db] is not ready"
+                    ]
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "hello.db",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-05T21:03:21Z",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "internal.acorn.io/v1",
+                        "kind": "AppInstance",
+                        "name": "hello",
+                        "uid": "486516ac-c2e7-4d89-89d4-36e06e14f4bd",
+                        "controller": true,
+                        "blockOwnerDeletion": true
+                    }
+                ]
+            },
+            "spec": {
+                "region": "local",
+                "image": "ghcr.io/acorn-io/mongodb-external:v#.#.#",
+                "stop": false
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:c8ba2f1a84408faec2c8e5a3a037b82eb92dae8a111cf921f018184ca5c82e7b",
+                "observedAutoUpgrade": true,
+                "columns": {
+                    "healthy": "0",
+                    "upToDate": "0",
+                    "message": "(job: create): waiting for secret to be created [config]; (service: mongo): pending; (secret: admin): waiting: [job not complete]; (secret: config): missing: \"acorn login hello.db\" required; (secret: user): waiting: [job not complete]"
+                },
+                "namespace": "hello-db-8989a42b-acorn-95f3d1b0",
+                "staged": {
+                    "appImage": {
+                        "id": "ghcr.io/acorn-io/mongodb-external:v0.3.0",
+                        "name": "ghcr.io/acorn-io/mongodb-external:v0.3.0",
+                        "digest": "sha256:c8ba2f1a84408faec2c8e5a3a037b82eb92dae8a111cf921f018184ca5c82e7b",
+                        "acornfile": "name:        \"External MongoDB Database\"\ndescription: \"Creates an Acorn service to connect to an external MongoDB database.\"\nreadme:      \"./README.md\"\ninfo:        localData.info\n\nservices: mongo: {\n\tgenerated: job: \"create\"\n\tdefault: true\n}\n\njobs: create: {\n\timage: \"alpine\"\n\tenv: {\n\t\t\"secret://config\": \"\"\n\t}\n\tdirs: {\n\t\t\"/acorn/scripts\": \"./scripts\"\n\t}\n\tentrypoint: [\"/acorn/scripts/render.sh\"]\n}\n\nsecrets: user: {\n\ttype: \"generated\"\n\tparams: job: \"create\"\n}\n\nsecrets: admin: {\n\ttype: \"generated\"\n\tparams: job: \"create\"\n}\n\nsecrets: config: {\n\ttype: \"credential.acorn.io/mongodb\"\n\tparams: {\n\t\tinstructions: localData.instructions\n\t\tpromptOrder: [\"proto\", \"address\", \"port\", \"dbName\", \"adminUsername\", \"adminPassword\", \"username\", \"password\"]\n\t}\n\tdata: {\n\t\taddress:       \"\"\n\t\tport:          \"27017\"\n\t\tusername:      \"\"\n\t\tpassword:      \"\"\n\t\tadminUsername: \"\"\n\t\tadminPassword: \"\"\n\t\tproto:         \"mongodb+srv\"\n\t\tdbName:        \"\"\n\t}\n}\n\nlocalData: instructions: \"\"\"\n  ## Overview\n  \n  This will create the service from an existing MongoDB so that it can be swapped with the MongoDB container service.\n  \n  ## Instructions\n  \n  fill in:\n  \n  - address: the address of the MongoDB server (mongo.example.com)\n  - port: the port of the MongoDB server (27017)\n  - username: the username to use to connect to the MongoDB server\n  - password: the password to use to connect to the MongoDB server\n  - adminUsername: the username to use to connect to the MongoDB server as an admin\n  - adminPassword: the password to use to connect to the MongoDB server as an admin\n  - proto: the protocol to use to connect to the MongoDB server (mongodb or mongodb+srv)\n  - dbName: the name of the database to use \n\n  \"\"\"\n\nlocalData: info: \"\"\"\n## Usage\n\nservices: db: {\n\timage: \"ghcr.io/acorn-io/mongodb-external:v#.#.#\"\n}\n\ncontainers: app: {\n\timage: \"app-image\"\n\tenv: {\n\t  DB_HOST: \"@{@{service.}db.address}\"\n\t  DB_PORT: \"@{@{service.}db.port.27017}\"\n\t  DB_NAME: \"@{@{service.}db.data.dbName}\"\n\t  DB_USER: \"@{@{service.}db.secrets.user.username}\"\n\t  DB_PASS: \"@{@{service.}db.secrets.user.password}\"\n\t  DB_ADMIN_USER: \"@{@{service.}db.secrets.admin.username}\"\n\t  DB_ADMIN_PASS: \"@{@{service.}db.secrets.admin.password}\"\n\t}\n}\n\"\"\"\n",
+                        "imageData": {
+                            "jobs": {
+                                "create": {
+                                    "image": "sha256:c675f2632ea374b333ccced1a613391bb152f7b1196cd7dabf4ff8f174398961"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "alpine",
+                                        "build": {
+                                            "context": ".",
+                                            "dockerfile": "Dockerfile",
+                                            "baseImage": "alpine",
+                                            "contextDirs": {
+                                                "/acorn/scripts": "./scripts"
+                                            }
+                                        }
+                                    },
+                                    "imageKey": "create"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {
+                            "remotes": [
+                                "https://github.com/acorn-io/mongodb-external"
+                            ],
+                            "revision": "d52f4d2c96520193dba37512073efeb2e9e97296",
+                            "untracked": true,
+                            "acornfile": "Acornfile",
+                            "buildContext": "."
+                        },
+                        "version": {
+                            "runtimeVersion": "v0.10.0-3-g403f4c2b+403f4c2b",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "ghcr.io/acorn-io/mongodb-external:v0.3.0",
+                    "name": "ghcr.io/acorn-io/mongodb-external:v0.3.0",
+                    "digest": "sha256:c8ba2f1a84408faec2c8e5a3a037b82eb92dae8a111cf921f018184ca5c82e7b",
+                    "acornfile": "name:        \"External MongoDB Database\"\ndescription: \"Creates an Acorn service to connect to an external MongoDB database.\"\nreadme:      \"./README.md\"\ninfo:        localData.info\n\nservices: mongo: {\n\tgenerated: job: \"create\"\n\tdefault: true\n}\n\njobs: create: {\n\timage: \"alpine\"\n\tenv: {\n\t\t\"secret://config\": \"\"\n\t}\n\tdirs: {\n\t\t\"/acorn/scripts\": \"./scripts\"\n\t}\n\tentrypoint: [\"/acorn/scripts/render.sh\"]\n}\n\nsecrets: user: {\n\ttype: \"generated\"\n\tparams: job: \"create\"\n}\n\nsecrets: admin: {\n\ttype: \"generated\"\n\tparams: job: \"create\"\n}\n\nsecrets: config: {\n\ttype: \"credential.acorn.io/mongodb\"\n\tparams: {\n\t\tinstructions: localData.instructions\n\t\tpromptOrder: [\"proto\", \"address\", \"port\", \"dbName\", \"adminUsername\", \"adminPassword\", \"username\", \"password\"]\n\t}\n\tdata: {\n\t\taddress:       \"\"\n\t\tport:          \"27017\"\n\t\tusername:      \"\"\n\t\tpassword:      \"\"\n\t\tadminUsername: \"\"\n\t\tadminPassword: \"\"\n\t\tproto:         \"mongodb+srv\"\n\t\tdbName:        \"\"\n\t}\n}\n\nlocalData: instructions: \"\"\"\n  ## Overview\n  \n  This will create the service from an existing MongoDB so that it can be swapped with the MongoDB container service.\n  \n  ## Instructions\n  \n  fill in:\n  \n  - address: the address of the MongoDB server (mongo.example.com)\n  - port: the port of the MongoDB server (27017)\n  - username: the username to use to connect to the MongoDB server\n  - password: the password to use to connect to the MongoDB server\n  - adminUsername: the username to use to connect to the MongoDB server as an admin\n  - adminPassword: the password to use to connect to the MongoDB server as an admin\n  - proto: the protocol to use to connect to the MongoDB server (mongodb or mongodb+srv)\n  - dbName: the name of the database to use \n\n  \"\"\"\n\nlocalData: info: \"\"\"\n## Usage\n\nservices: db: {\n\timage: \"ghcr.io/acorn-io/mongodb-external:v#.#.#\"\n}\n\ncontainers: app: {\n\timage: \"app-image\"\n\tenv: {\n\t  DB_HOST: \"@{@{service.}db.address}\"\n\t  DB_PORT: \"@{@{service.}db.port.27017}\"\n\t  DB_NAME: \"@{@{service.}db.data.dbName}\"\n\t  DB_USER: \"@{@{service.}db.secrets.user.username}\"\n\t  DB_PASS: \"@{@{service.}db.secrets.user.password}\"\n\t  DB_ADMIN_USER: \"@{@{service.}db.secrets.admin.username}\"\n\t  DB_ADMIN_PASS: \"@{@{service.}db.secrets.admin.password}\"\n\t}\n}\n\"\"\"\n",
+                    "imageData": {
+                        "jobs": {
+                            "create": {
+                                "image": "sha256:c675f2632ea374b333ccced1a613391bb152f7b1196cd7dabf4ff8f174398961"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "alpine",
+                                    "build": {
+                                        "context": ".",
+                                        "dockerfile": "Dockerfile",
+                                        "baseImage": "alpine",
+                                        "contextDirs": {
+                                            "/acorn/scripts": "./scripts"
+                                        }
+                                    }
+                                },
+                                "imageKey": "create"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {
+                        "remotes": [
+                            "https://github.com/acorn-io/mongodb-external"
+                        ],
+                        "revision": "d52f4d2c96520193dba37512073efeb2e9e97296",
+                        "untracked": true,
+                        "acornfile": "Acornfile",
+                        "buildContext": "."
+                    },
+                    "version": {
+                        "runtimeVersion": "v0.10.0-3-g403f4c2b+403f4c2b",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "name": "External MongoDB Database",
+                    "description": "Creates an Acorn service to connect to an external MongoDB database.",
+                    "readme": "./README.md",
+                    "info": "## Usage\n\nservices: db: {\n\timage: \"ghcr.io/acorn-io/mongodb-external:v#.#.#\"\n}\n\ncontainers: app: {\n\timage: \"app-image\"\n\tenv: {\n\t  DB_HOST: \"@{@{service.}db.address}\"\n\t  DB_PORT: \"@{@{service.}db.port.27017}\"\n\t  DB_NAME: \"@{@{service.}db.data.dbName}\"\n\t  DB_USER: \"@{@{service.}db.secrets.user.username}\"\n\t  DB_PASS: \"@{@{service.}db.secrets.user.password}\"\n\t  DB_ADMIN_USER: \"@{@{service.}db.secrets.admin.username}\"\n\t  DB_ADMIN_PASS: \"@{@{service.}db.secrets.admin.password}\"\n\t}\n}",
+                    "jobs": {
+                        "create": {
+                            "dirs": {
+                                "/acorn/scripts": {
+                                    "contextDir": "./scripts",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:c675f2632ea374b333ccced1a613391bb152f7b1196cd7dabf4ff8f174398961",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "sha256:c675f2632ea374b333ccced1a613391bb152f7b1196cd7dabf4ff8f174398961",
+                                "contextDirs": {
+                                    "/acorn/scripts": "./scripts"
+                                }
+                            },
+                            "entrypoint": [
+                                "/acorn/scripts/render.sh"
+                            ],
+                            "environment": [
+                                {
+                                    "secret": {
+                                        "name": "config",
+                                        "onChange": "redeploy"
+                                    }
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {}
+                        }
+                    },
+                    "secrets": {
+                        "admin": {
+                            "type": "generated",
+                            "params": {
+                                "job": "create"
+                            }
+                        },
+                        "config": {
+                            "type": "credential.acorn.io/mongodb",
+                            "params": {
+                                "instructions": "\n  ## Overview\n  \n  This will create the service from an existing MongoDB so that it can be swapped with the MongoDB container service.\n  \n  ## Instructions\n  \n  fill in:\n  \n  - address: the address of the MongoDB server (mongo.example.com)\n  - port: the port of the MongoDB server (27017)\n  - username: the username to use to connect to the MongoDB server\n  - password: the password to use to connect to the MongoDB server\n  - adminUsername: the username to use to connect to the MongoDB server as an admin\n  - adminPassword: the password to use to connect to the MongoDB server as an admin\n  - proto: the protocol to use to connect to the MongoDB server (mongodb or mongodb+srv)\n  - dbName: the name of the database to use \n\n  ",
+                                "promptOrder": [
+                                    "proto",
+                                    "address",
+                                    "port",
+                                    "dbName",
+                                    "adminUsername",
+                                    "adminPassword",
+                                    "username",
+                                    "password"
+                                ]
+                            },
+                            "data": {
+                                "address": "",
+                                "adminPassword": "",
+                                "adminUsername": "",
+                                "dbName": "",
+                                "password": "",
+                                "port": "27017",
+                                "proto": "mongodb+srv",
+                                "username": ""
+                            }
+                        },
+                        "user": {
+                            "type": "generated",
+                            "params": {
+                                "job": "create"
+                            }
+                        }
+                    },
+                    "services": {
+                        "mongo": {
+                            "default": true,
+                            "generated": {
+                                "job": "create"
+                            }
+                        }
+                    }
+                },
+                "appStatus": {
+                    "jobs": {
+                        "create": {
+                            "state": "waiting",
+                            "transitioningMessages": [
+                                "waiting for secret to be created [config]"
+                            ],
+                            "configHash": "a6df2248c0bc90211a487b40be7b5b30ef99853ab2358f19520489603f8c8e2c",
+                            "name": "create",
+                            "namespace": "hello-db-8989a42b-acorn-95f3d1b0",
+                            "expressionErrors": [
+                                {
+                                    "dependencyNotFound": {
+                                        "dependencyType": "secret",
+                                        "name": "config"
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "secrets": {
+                        "admin": {
+                            "state": "pending",
+                            "transitioningMessages": [
+                                "waiting: [job not complete]"
+                            ],
+                            "configHash": "4feebfb4be4ac62c3eadf5ef5d3fc88f81c550faafc325d017663ca4b4c2c849"
+                        },
+                        "config": {
+                            "state": "pending",
+                            "transitioningMessages": [
+                                "missing: \"acorn login hello.db\" required"
+                            ],
+                            "configHash": "f94829f4d5ccfdaafd0b7d76e4a4d0c49674a074d0cdd93232df5a9ac57bf847",
+                            "missing": true,
+                            "loginRequired": true,
+                            "loginInstructions": "\n  ## Overview\n  \n  This will create the service from an existing MongoDB so that it can be swapped with the MongoDB container service.\n  \n  ## Instructions\n  \n  fill in:\n  \n  - address: the address of the MongoDB server (mongo.example.com)\n  - port: the port of the MongoDB server (27017)\n  - username: the username to use to connect to the MongoDB server\n  - password: the password to use to connect to the MongoDB server\n  - adminUsername: the username to use to connect to the MongoDB server as an admin\n  - adminPassword: the password to use to connect to the MongoDB server as an admin\n  - proto: the protocol to use to connect to the MongoDB server (mongodb or mongodb+srv)\n  - dbName: the name of the database to use \n\n  "
+                        },
+                        "user": {
+                            "state": "pending",
+                            "transitioningMessages": [
+                                "waiting: [job not complete]"
+                            ],
+                            "configHash": "4feebfb4be4ac62c3eadf5ef5d3fc88f81c550faafc325d017663ca4b4c2c849"
+                        }
+                    },
+                    "services": {
+                        "mongo": {
+                            "state": "pending",
+                            "configHash": "665144804db23787a01b89691bd655618d172eb839b9e7f8f784ed8761677f4e"
+                        }
+                    },
+                    "loginRequired": true
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-03-02T06:19:34Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "InProgress",
+                        "message": "(job: create): waiting for secret to be created [config]",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:26Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "InProgress",
+                        "message": "(service: mongo): pending",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:26Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "InProgress",
+                        "message": "(secret: admin): waiting: [job not complete]; (secret: config): missing: \"acorn login hello.db\" required; (secret: user): waiting: [job not complete]",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:26Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:22Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "InProgress",
+                        "message": "(job: create): waiting for secret to be created [config], (secret: admin): waiting: [job not complete]; (secret: config): missing: \"acorn login hello.db\" required; (secret: user): waiting: [job not complete], (service: mongo): pending",
+                        "status": "Unknown",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-03-02T08:15:53Z",
+                        "transitioning": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-03-02T08:15:53Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:26Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T21:03:26Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0
+                    }
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "provisioning",
+                    "transitioningMessages": [
+                        "(job: create): waiting for secret to be created [config]",
+                        "(secret: admin): waiting: [job not complete]; (secret: config): missing: \"acorn login hello.db\" required; (secret: user): waiting: [job not complete]",
+                        "(service: mongo): pending"
+                    ]
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "mytestnew",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-05T19:45:19Z"
+            },
+            "spec": {
+                "image": "fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-mytestnew-20624b56.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "mytestnew-acorn-57929b8a",
+                "staged": {
+                    "appImage": {
+                        "id": "fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                        "name": "fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                        "digest": "sha256:fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                        "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.1+6a26e9bf",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                    "name": "fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                    "digest": "sha256:fe32e7a04beddd2ba7e0ceb6c35218b1ddba723a06747ea73343ced6ae5b7343",
+                    "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.1+6a26e9bf",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG8z",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "5 container restarts"
+                            ],
+                            "configHash": "26d19dfac67d4a4f0d75cea161829013e2c634930da8e79449780507177642d4",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 5
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-mytestnew-20624b56.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:21Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:45:19Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 30000000,
+                        "mywebnew": 30000000
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "class": "cc2",
+                            "memory": 30000000,
+                            "cpu": 21
+                        },
+                        "mywebnew": {
+                            "class": "cc2",
+                            "memory": 30000000,
+                            "cpu": 21
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "tt3",
+                "namespace": "acorn",
+                "generation": 1,
+                "creationTimestamp": "2024-02-05T19:14:51Z"
+            },
+            "spec": {
+                "image": "86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea"
+            },
+            "status": {
+                "observedGeneration": 1,
+                "observedImageDigest": "sha256:86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                "columns": {
+                    "healthy": "1",
+                    "upToDate": "1",
+                    "message": "OK",
+                    "endpoints": "http://mywebnew-tt3-a9eea61b.local.oss-acorn.io"
+                },
+                "ready": true,
+                "namespace": "tt3-acorn-727cf69e",
+                "staged": {
+                    "appImage": {
+                        "id": "86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                        "name": "86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                        "digest": "sha256:86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                        "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.1-rc2+92d24ac7",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 1,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                    "name": "86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                    "digest": "sha256:86d46ff6143479e9aaf6c8c2f6ab6900dab68c10d30ff43333d4a94460d78eea",
+                    "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.1-rc2+92d24ac7",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG8z",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "running",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "messages": [
+                                "5 container restarts"
+                            ],
+                            "configHash": "26d19dfac67d4a4f0d75cea161829013e2c634930da8e79449780507177642d4",
+                            "readyCount": 1,
+                            "readyDesiredCount": 1,
+                            "runningReplicaCount": 1,
+                            "upToDateCount": 1,
+                            "maxReplicaRestartCount": 5
+                        }
+                    },
+                    "endpoints": [
+                        {
+                            "target": "mywebnew",
+                            "targetPort": 80,
+                            "address": "mywebnew-tt3-a9eea61b.local.oss-acorn.io",
+                            "protocol": "http",
+                            "publishProtocol": "http"
+                        }
+                    ]
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:52Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:52Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T19:14:51Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 30000000,
+                        "mywebnew": 30000000
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "class": "cc2",
+                            "memory": 30000000
+                        },
+                        "mywebnew": {
+                            "class": "cc2",
+                            "memory": 30000000
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "running"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "tt2",
+                "namespace": "acorn",
+                "generation": 4,
+                "creationTimestamp": "2024-02-05T17:42:35Z"
+            },
+            "spec": {
+                "image": "603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                "stop": true
+            },
+            "status": {
+                "observedGeneration": 4,
+                "observedImageDigest": "sha256:603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                "columns": {
+                    "healthy": "stopped",
+                    "upToDate": "-",
+                    "message": "OK"
+                },
+                "ready": true,
+                "namespace": "tt2-acorn-a121ccf4",
+                "staged": {
+                    "appImage": {
+                        "id": "603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                        "name": "603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                        "digest": "sha256:603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                        "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.0+e2b69a6d",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 4,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                    "name": "603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                    "digest": "sha256:603b2fff5547119174686d55447aa1f987508cec132486c43154625d2bd86581",
+                    "acornfile": "args: {\n\tnewtext: \"hello3\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t\t\"/usr/share/nginx/html/test2.html\": \"new1\"\n\t\t}\n\t\tenv:\n\t\t{\n\t\t\t\"test1.val\": \"hello\"\n\t\t\t\"test2.kk\":  \"hellokk\"\n\t\t\ttt:          \"ss\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.0+e2b69a6d",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG8z",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test2.html": {
+                                    "mode": "0644",
+                                    "content": "bmV3MQ==",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:e237a7a85ce082f2b7abd5e96da039371df0250ce0208b790eb1d0f063ad3fc7",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "environment": [
+                                {
+                                    "name": "test1\\.val",
+                                    "value": "hello",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "test2\\.kk",
+                                    "value": "hellokk",
+                                    "secret": {}
+                                },
+                                {
+                                    "name": "tt",
+                                    "value": "ss",
+                                    "secret": {}
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "stopped",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "configHash": "26d19dfac67d4a4f0d75cea161829013e2c634930da8e79449780507177642d4"
+                        }
+                    },
+                    "stopped": true
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 4,
+                        "lastTransitionTime": "2024-02-24T01:31:25Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 4,
+                        "lastTransitionTime": "2024-02-24T01:31:25Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:42:35Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "stopped"
+                }
+            }
+        },
+        {
+            "kind": "App",
+            "apiVersion": "api.acorn.io/v1",
+            "metadata": {
+                "name": "tt1",
+                "namespace": "acorn",
+                "generation": 5,
+                "creationTimestamp": "2024-02-05T17:40:00Z"
+            },
+            "spec": {
+                "image": "sangeetha/myfirstacorn:v0.0.1",
+                "stop": true
+            },
+            "status": {
+                "observedGeneration": 5,
+                "observedImageDigest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                "columns": {
+                    "healthy": "stopped",
+                    "upToDate": "-",
+                    "message": "OK"
+                },
+                "ready": true,
+                "namespace": "tt1-acorn-d584f1bb",
+                "staged": {
+                    "appImage": {
+                        "id": "index.docker.io/sangeetha/myfirstacorn:v0.0.1",
+                        "name": "sangeetha/myfirstacorn:v0.0.1",
+                        "digest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                        "acornfile": "args: {\n\tnewtext: \"hello1\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t}\n\t}\n}\n",
+                        "imageData": {
+                            "containers": {
+                                "mywebnew": {
+                                    "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4"
+                                }
+                            },
+                            "builds": [
+                                {
+                                    "containerBuild": {
+                                        "image": "nginx"
+                                    },
+                                    "imageKey": "mywebnew"
+                                }
+                            ]
+                        },
+                        "buildContext": {},
+                        "vcs": {},
+                        "version": {
+                            "runtimeVersion": "v0.10.0-rc2-5-g407ca5d6+407ca5d6",
+                            "acornfileSchema": "v1"
+                        }
+                    },
+                    "permissionsChecked": true,
+                    "permissionsObservedGeneration": 5,
+                    "imageAllowed": true
+                },
+                "appImage": {
+                    "id": "index.docker.io/sangeetha/myfirstacorn:v0.0.1",
+                    "name": "sangeetha/myfirstacorn:v0.0.1",
+                    "digest": "sha256:5955a52073aa157fa8c68425e558331209e2b076c3000dd68e9c519a7b9f4e73",
+                    "acornfile": "args: {\n\tnewtext: \"hello1\"\n\tnumber:  1\n\tdecimal: 1.1\n}\ncontainers: {\n\tmywebnew: {\n\t\tname:  \"testweb1\"\n\t\timage: \"nginx\"\n\t\tscale: 1\n\t\tports: publish: \"80/http\"\n\t\tfiles: {\n\t\t\t\"/usr/share/nginx/html/index.html\": args.newtext\n\t\t\t\"/usr/share/nginx/html/test.html\":  \"modified\"\n\t\t\t\"/usr/share/nginx/html/test1.html\": \"\\(args.decimal)\"\n\t\t}\n\t}\n}\n",
+                    "imageData": {
+                        "containers": {
+                            "mywebnew": {
+                                "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4"
+                            }
+                        },
+                        "builds": [
+                            {
+                                "containerBuild": {
+                                    "image": "nginx"
+                                },
+                                "imageKey": "mywebnew"
+                            }
+                        ]
+                    },
+                    "buildContext": {},
+                    "vcs": {},
+                    "version": {
+                        "runtimeVersion": "v0.10.0-rc2-5-g407ca5d6+407ca5d6",
+                        "acornfileSchema": "v1"
+                    }
+                },
+                "appSpec": {
+                    "containers": {
+                        "mywebnew": {
+                            "name": "testweb1",
+                            "files": {
+                                "/usr/share/nginx/html/index.html": {
+                                    "mode": "0644",
+                                    "content": "aGVsbG8x",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test.html": {
+                                    "mode": "0644",
+                                    "content": "bW9kaWZpZWQ=",
+                                    "secret": {}
+                                },
+                                "/usr/share/nginx/html/test1.html": {
+                                    "mode": "0644",
+                                    "content": "MS4x",
+                                    "secret": {}
+                                }
+                            },
+                            "image": "sha256:b195e17849cd0608906261c3854998f93306522ae678401340165a7609f509d4",
+                            "build": {
+                                "context": ".",
+                                "dockerfile": "Dockerfile",
+                                "baseImage": "nginx"
+                            },
+                            "ports": [
+                                {
+                                    "protocol": "http",
+                                    "publish": true,
+                                    "targetPort": 80
+                                }
+                            ],
+                            "probes": null,
+                            "metrics": {},
+                            "scale": 1
+                        }
+                    }
+                },
+                "appStatus": {
+                    "containers": {
+                        "mywebnew": {
+                            "state": "stopped",
+                            "ready": true,
+                            "upToDate": true,
+                            "defined": true,
+                            "configHash": "4685aa082381019f80eb0c94fa8ba9815852d3527eacc4ce0123b66fba2b5941"
+                        }
+                    },
+                    "stopped": true
+                },
+                "conditions": [
+                    {
+                        "type": "namespace",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "image-pull",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "parsed",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defaults",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "resolved-offerings",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "scheduling",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "quota",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "defined",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "containers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 5,
+                        "lastTransitionTime": "2024-02-24T01:31:33Z",
+                        "success": true
+                    },
+                    {
+                        "type": "functions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "jobs",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "volumes",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "services",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "secrets",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "acorns",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "routers",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "consumer-permissions",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    },
+                    {
+                        "type": "Ready",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 5,
+                        "lastTransitionTime": "2024-02-24T01:31:33Z",
+                        "success": true
+                    },
+                    {
+                        "type": "controller",
+                        "reason": "Success",
+                        "status": "True",
+                        "observedGeneration": 1,
+                        "lastTransitionTime": "2024-02-05T17:40:00Z",
+                        "success": true
+                    }
+                ],
+                "defaults": {
+                    "memory": {
+                        "": 0,
+                        "mywebnew": 0
+                    },
+                    "region": "local"
+                },
+                "resolvedOfferings": {
+                    "containers": {
+                        "": {
+                            "memory": 0
+                        },
+                        "mywebnew": {
+                            "memory": 0
+                        }
+                    },
+                    "region": "local"
+                },
+                "summary": {
+                    "state": "stopped"
+                }
+            }
+        }
+    ]
+}
