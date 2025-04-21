@@ -1,9 +1,10 @@
 package parser
 
 import (
-	"bufio"
 	"fmt"
 	"io"
+	"maps"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -15,8 +16,10 @@ import (
 
 var (
 	sepRegex       = regexp.MustCompile(`^\s*---+\s*$`)
+	endHeaderRegex = regexp.MustCompile(`^\s*===+\s*$`)
 	strictSepRegex = regexp.MustCompile(`^---\n$`)
-	skipRegex      = regexp.MustCompile(`^![-\w]+\s*$`)
+	skipRegex      = regexp.MustCompile(`^![ -.:*\w]+\s*$`)
+	nameRegex      = regexp.MustCompile(`^[a-z]+$`)
 )
 
 func normalize(key string) string {
@@ -24,7 +27,8 @@ func normalize(key string) string {
 }
 
 func toBool(line string) (bool, error) {
-	if line == "true" {
+	line = normalize(line)
+	if line == "true" || line == "t" {
 		return true, nil
 	} else if line != "false" {
 		return false, fmt.Errorf("invalid boolean parameter, must be \"true\" or \"false\", got [%s]", line)
@@ -49,9 +53,9 @@ func csv(line string) (result []string) {
 }
 
 func addArg(line string, tool *types.Tool) error {
-	if tool.Parameters.Arguments == nil {
-		tool.Parameters.Arguments = &openapi3.Schema{
-			Type:       "object",
+	if tool.Arguments == nil {
+		tool.Arguments = &openapi3.Schema{
+			Type:       &openapi3.Types{"object"},
 			Properties: openapi3.Schemas{},
 		}
 	}
@@ -61,17 +65,17 @@ func addArg(line string, tool *types.Tool) error {
 		return fmt.Errorf("invalid arg format: %s", line)
 	}
 
-	tool.Parameters.Arguments.Properties[key] = &openapi3.SchemaRef{
+	tool.Arguments.Properties[key] = &openapi3.SchemaRef{
 		Value: &openapi3.Schema{
 			Description: strings.TrimSpace(value),
-			Type:        "string",
+			Type:        &openapi3.Types{"string"},
 		},
 	}
 
 	return nil
 }
 
-func isParam(line string, tool *types.Tool) (_ bool, err error) {
+func isParam(line string, tool *types.Tool, scan *simplescanner) (_ bool, err error) {
 	key, value, ok := strings.Cut(line, ":")
 	if !ok {
 		return false, nil
@@ -79,43 +83,65 @@ func isParam(line string, tool *types.Tool) (_ bool, err error) {
 	value = strings.TrimSpace(value)
 	switch normalize(key) {
 	case "name":
-		tool.Parameters.Name = strings.ToLower(value)
+		tool.Name = value
 	case "modelprovider":
-		tool.Parameters.ModelProvider = true
+		tool.ModelProvider = true
 	case "model", "modelname":
-		tool.Parameters.ModelName = value
+		tool.ModelName = value
 	case "globalmodel", "globalmodelname":
-		tool.Parameters.GlobalModelName = value
+		tool.GlobalModelName = value
 	case "description":
-		tool.Parameters.Description = value
+		tool.Description = scan.AddMultiline(value)
 	case "internalprompt":
 		v, err := toBool(value)
 		if err != nil {
 			return false, err
 		}
-		tool.Parameters.InternalPrompt = &v
+		tool.InternalPrompt = &v
 	case "chat":
 		v, err := toBool(value)
 		if err != nil {
 			return false, err
 		}
-		tool.Parameters.Chat = v
-	case "export":
-		tool.Parameters.Export = append(tool.Parameters.Export, csv(strings.ToLower(value))...)
+		tool.Chat = v
+	case "export", "exporttool", "exports", "exporttools", "sharetool", "sharetools", "sharedtool", "sharedtools":
+		tool.Export = append(tool.Export, csv(scan.AddMultiline(value))...)
 	case "tool", "tools":
-		tool.Parameters.Tools = append(tool.Parameters.Tools, csv(strings.ToLower(value))...)
+		tool.Tools = append(tool.Tools, csv(scan.AddMultiline(value))...)
+	case "inputfilter", "inputfilters":
+		tool.InputFilters = append(tool.InputFilters, csv(scan.AddMultiline(value))...)
+	case "shareinputfilter", "shareinputfilters", "sharedinputfilter", "sharedinputfilters":
+		tool.ExportInputFilters = append(tool.ExportInputFilters, csv(scan.AddMultiline(value))...)
+	case "outputfilter", "outputfilters":
+		tool.OutputFilters = append(tool.OutputFilters, csv(scan.AddMultiline(value))...)
+	case "shareoutputfilter", "shareoutputfilters", "sharedoutputfilter", "sharedoutputfilters":
+		tool.ExportOutputFilters = append(tool.ExportOutputFilters, csv(scan.AddMultiline(value))...)
+	case "agent", "agents":
+		tool.Agents = append(tool.Agents, csv(scan.AddMultiline(value))...)
 	case "globaltool", "globaltools":
-		tool.Parameters.GlobalTools = append(tool.Parameters.GlobalTools, csv(strings.ToLower(value))...)
-	case "exportcontext":
-		tool.Parameters.ExportContext = append(tool.Parameters.ExportContext, csv(strings.ToLower(value))...)
+		tool.GlobalTools = append(tool.GlobalTools, csv(scan.AddMultiline(value))...)
+	case "exportcontext", "exportcontexts", "sharecontext", "sharecontexts", "sharedcontext", "sharedcontexts":
+		tool.ExportContext = append(tool.ExportContext, csv(scan.AddMultiline(value))...)
 	case "context":
-		tool.Parameters.Context = append(tool.Parameters.Context, csv(strings.ToLower(value))...)
+		tool.Context = append(tool.Context, csv(scan.AddMultiline(value))...)
+	case "stdin":
+		b, err := toBool(value)
+		if err != nil {
+			return false, err
+		}
+		tool.Stdin = b
+	case "metadata":
+		mkey, mvalue, _ := strings.Cut(scan.AddMultiline(value), ":")
+		if tool.MetaData == nil {
+			tool.MetaData = map[string]string{}
+		}
+		tool.MetaData[strings.TrimSpace(mkey)] = strings.TrimSpace(mvalue)
 	case "args", "arg", "param", "params", "parameters", "parameter":
-		if err := addArg(value, tool); err != nil {
+		if err := addArg(scan.AddMultiline(value), tool); err != nil {
 			return false, err
 		}
 	case "maxtoken", "maxtokens":
-		tool.Parameters.MaxTokens, err = strconv.Atoi(value)
+		tool.MaxTokens, err = strconv.Atoi(value)
 		if err != nil {
 			return false, err
 		}
@@ -124,21 +150,25 @@ func isParam(line string, tool *types.Tool) (_ bool, err error) {
 		if err != nil {
 			return false, err
 		}
-		tool.Parameters.Cache = &b
+		tool.Cache = &b
 	case "jsonmode", "json", "jsonoutput", "jsonformat", "jsonresponse":
-		tool.Parameters.JSONResponse, err = toBool(value)
+		tool.JSONResponse, err = toBool(value)
 		if err != nil {
 			return false, err
 		}
 	case "temperature":
-		tool.Parameters.Temperature, err = toFloatPtr(value)
+		tool.Temperature, err = toFloatPtr(value)
 		if err != nil {
 			return false, err
 		}
 	case "credentials", "creds", "credential", "cred":
-		tool.Parameters.Credentials = append(tool.Parameters.Credentials, csv(strings.ToLower(value))...)
+		tool.Credentials = append(tool.Credentials, csv(scan.AddMultiline(value))...)
+	case "sharecredentials", "sharecreds", "sharecredential", "sharecred", "sharedcredentials", "sharedcreds", "sharedcredential", "sharedcred":
+		tool.ExportCredentials = append(tool.ExportCredentials, scan.AddMultiline(value))
+	case "type":
+		tool.Type = types.ToolType(strings.ToLower(value))
 	default:
-		return false, nil
+		return nameRegex.MatchString(key), nil
 	}
 
 	return true, nil
@@ -174,42 +204,132 @@ type context struct {
 	instructions []string
 	inBody       bool
 	skipNode     bool
+	skipLines    []string
 	seenParam    bool
 }
 
-func (c *context) finish(tools *[]types.Tool) {
+func (c *context) finish(tools *[]Node) {
 	c.tool.Instructions = strings.TrimSpace(strings.Join(c.instructions, ""))
-	if c.tool.Instructions != "" || c.tool.Parameters.Name != "" ||
-		len(c.tool.Export) > 0 || len(c.tool.Tools) > 0 ||
+	if c.tool.Instructions != "" ||
+		c.tool.Name != "" ||
+		len(c.tool.Export) > 0 ||
+		len(c.tool.Tools) > 0 ||
 		c.tool.GlobalModelName != "" ||
 		len(c.tool.GlobalTools) > 0 ||
+		len(c.tool.ExportInputFilters) > 0 ||
+		len(c.tool.ExportOutputFilters) > 0 ||
+		len(c.tool.Agents) > 0 ||
+		len(c.tool.ExportCredentials) > 0 ||
 		c.tool.Chat {
-		*tools = append(*tools, c.tool)
+		*tools = append(*tools, Node{
+			ToolNode: &ToolNode{
+				Tool: c.tool,
+			},
+		})
+	}
+	if c.skipNode && len(c.skipLines) > 0 {
+		*tools = append(*tools, Node{
+			TextNode: &TextNode{
+				Text: strings.Join(c.skipLines, ""),
+			},
+		})
 	}
 	*c = context{}
 }
 
 type Options struct {
 	AssignGlobals bool
+	Location      string
 }
 
 func complete(opts ...Options) (result Options) {
 	for _, opt := range opts {
 		result.AssignGlobals = types.FirstSet(opt.AssignGlobals, result.AssignGlobals)
+		result.Location = types.FirstSet(opt.Location, result.Location)
 	}
 	return
 }
 
-func Parse(input io.Reader, opts ...Options) ([]types.Tool, error) {
-	tools, err := parse(input)
+type Document struct {
+	Nodes []Node `json:"nodes,omitempty"`
+}
+
+func writeSep(buf *strings.Builder, lastText bool) {
+	if buf.Len() > 0 {
+		if !lastText {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("---\n")
+	}
+}
+
+func (d Document) Print() string {
+	buf := strings.Builder{}
+	lastText := false
+	for _, node := range d.Nodes {
+		if node.TextNode != nil {
+			writeSep(&buf, lastText)
+			buf.WriteString(node.TextNode.Text)
+			lastText = true
+		}
+		if node.ToolNode != nil {
+			writeSep(&buf, lastText)
+			buf.WriteString(node.ToolNode.Tool.Print())
+			lastText = false
+		}
+	}
+	return buf.String()
+}
+
+type Node struct {
+	TextNode *TextNode `json:"textNode,omitempty"`
+	ToolNode *ToolNode `json:"toolNode,omitempty"`
+}
+
+type TextNode struct {
+	Text string `json:"text,omitempty"`
+}
+
+type ToolNode struct {
+	Tool types.Tool `json:"tool,omitempty"`
+}
+
+func ParseTools(input io.Reader, opts ...Options) (result []types.Tool, _ error) {
+	doc, err := Parse(input, opts...)
 	if err != nil {
 		return nil, err
+	}
+	for _, node := range doc.Nodes {
+		if node.ToolNode != nil {
+			result = append(result, node.ToolNode.Tool)
+		}
+	}
+
+	return
+}
+
+func Parse(input io.Reader, opts ...Options) (Document, error) {
+	nodes, err := parse(input)
+	if err != nil {
+		return Document{}, err
 	}
 
 	opt := complete(opts...)
 
+	if opt.Location != "" {
+		for _, node := range nodes {
+			if node.ToolNode != nil && node.ToolNode.Tool.Source.Location == "" {
+				node.ToolNode.Tool.Source.Location = opt.Location
+			}
+		}
+	}
+
+	nodes = assignMetadata(nodes)
+
 	if !opt.AssignGlobals {
-		return tools, nil
+		return Document{
+			Nodes: nodes,
+		}, nil
 	}
 
 	var (
@@ -218,10 +338,14 @@ func Parse(input io.Reader, opts ...Options) ([]types.Tool, error) {
 		globalTools     []string
 	)
 
-	for _, tool := range tools {
+	for _, node := range nodes {
+		if node.ToolNode == nil {
+			continue
+		}
+		tool := node.ToolNode.Tool
 		if tool.GlobalModelName != "" {
 			if globalModel != "" {
-				return nil, fmt.Errorf("global model name defined multiple times")
+				return Document{}, fmt.Errorf("global model name defined multiple times")
 			}
 			globalModel = tool.GlobalModelName
 		}
@@ -234,29 +358,162 @@ func Parse(input io.Reader, opts ...Options) ([]types.Tool, error) {
 		}
 	}
 
-	for i, tool := range tools {
-		if globalModel != "" && tool.ModelName == "" {
-			tool.ModelName = globalModel
+	for _, node := range nodes {
+		if node.ToolNode == nil {
+			continue
+		}
+		if globalModel != "" && node.ToolNode.Tool.ModelName == "" {
+			node.ToolNode.Tool.ModelName = globalModel
 		}
 		for _, globalTool := range globalTools {
-			if !slices.Contains(tool.Tools, globalTool) {
-				tool.Tools = append(tool.Tools, globalTool)
+			if !slices.Contains(node.ToolNode.Tool.Tools, globalTool) {
+				node.ToolNode.Tool.Tools = append(node.ToolNode.Tool.Tools, globalTool)
 			}
 		}
-		tools[i] = tool
 	}
 
-	return tools, nil
+	return Document{
+		Nodes: nodes,
+	}, nil
 }
 
-func parse(input io.Reader) ([]types.Tool, error) {
-	scan := bufio.NewScanner(input)
+func assignMetadata(nodes []Node) (result []Node) {
+	metadata := map[string]map[string]string{}
+	result = make([]Node, 0, len(nodes))
+	for _, node := range nodes {
+		if node.TextNode != nil {
+			body, ok := strings.CutPrefix(node.TextNode.Text, "!metadata:")
+			if ok {
+				line, rest, ok := strings.Cut(body, "\n")
+				if ok {
+					toolName, metaKey, ok := strings.Cut(strings.TrimSpace(line), ":")
+					if ok {
+						d, ok := metadata[toolName]
+						if !ok {
+							d = map[string]string{}
+							metadata[toolName] = d
+						}
+						d[metaKey] = strings.TrimSpace(rest)
+					}
+				}
+			}
+		}
+	}
+	if len(metadata) == 0 {
+		return nodes
+	}
 
+	for _, node := range nodes {
+		if node.ToolNode != nil {
+			if node.ToolNode.Tool.MetaData == nil {
+				node.ToolNode.Tool.MetaData = map[string]string{}
+			}
+			maps.Copy(node.ToolNode.Tool.MetaData, metadata[node.ToolNode.Tool.Name])
+			for wildcard := range metadata {
+				if strings.Contains(wildcard, "*") {
+					if m, err := path.Match(wildcard, node.ToolNode.Tool.Name); m && err == nil {
+						if node.ToolNode.Tool.MetaData == nil {
+							node.ToolNode.Tool.MetaData = map[string]string{}
+						}
+						maps.Copy(node.ToolNode.Tool.MetaData, metadata[wildcard])
+					}
+				}
+			}
+		}
+		result = append(result, node)
+	}
+
+	return
+}
+
+func isGPTScriptHashBang(line string) bool {
+	if !strings.HasPrefix(line, "#!") {
+		return false
+	}
+
+	parts := strings.Fields(line)
+
+	// Very specific lines we are looking for
+	// 1. #!gptscript
+	// 2. #!/usr/bin/env gptscript
+	// 3. #!/bin/env gptscript
+
+	if parts[0] == "#!gptscript" {
+		return true
+	}
+
+	if len(parts) > 1 && (parts[0] == "#!/usr/bin/env" || parts[0] == "#!/bin/env") &&
+		parts[1] == "gptscript" {
+		return true
+	}
+
+	return false
+}
+
+type simplescanner struct {
+	lines []string
+}
+
+func newSimpleScanner(data []byte) *simplescanner {
+	if len(data) == 0 {
+		return &simplescanner{}
+	}
+	lines := strings.Split(string(data), "\n")
+	return &simplescanner{
+		lines: append([]string{""}, lines...),
+	}
+}
+
+func dropCR(s string) string {
+	if len(s) > 0 && s[len(s)-1] == '\r' {
+		return s[:len(s)-1]
+	}
+	return s
+}
+
+func (s *simplescanner) AddMultiline(current string) string {
+	result := current
+	for {
+		if len(s.lines) < 2 || len(s.lines[1]) == 0 {
+			return result
+		}
+		if strings.HasPrefix(s.lines[1], " ") || strings.HasPrefix(s.lines[1], "\t") {
+			result += " " + dropCR(s.lines[1])
+			s.lines = s.lines[1:]
+		} else {
+			return result
+		}
+	}
+}
+
+func (s *simplescanner) Text() string {
+	if len(s.lines) == 0 {
+		return ""
+	}
+	return dropCR(s.lines[0])
+}
+
+func (s *simplescanner) Scan() bool {
+	if len(s.lines) == 0 {
+		return false
+	}
+	s.lines = s.lines[1:]
+	return true
+}
+
+func parse(input io.Reader) ([]Node, error) {
 	var (
-		tools   []types.Tool
+		tools   []Node
 		context context
 		lineNo  int
 	)
+
+	data, err := io.ReadAll(input)
+	if err != nil {
+		return nil, err
+	}
+
+	scan := newSimpleScanner(data)
 
 	for scan.Scan() {
 		lineNo++
@@ -277,12 +534,13 @@ func parse(input io.Reader) ([]types.Tool, error) {
 		}
 
 		if context.skipNode {
+			context.skipLines = append(context.skipLines, line)
 			continue
 		}
 
 		if !context.inBody {
 			// If the very first line is #! just skip because this is a unix interpreter declaration
-			if strings.HasPrefix(line, "#!") && lineNo == 1 {
+			if lineNo == 1 && isGPTScriptHashBang(line) {
 				continue
 			}
 
@@ -292,6 +550,7 @@ func parse(input io.Reader) ([]types.Tool, error) {
 			}
 
 			if !context.seenParam && skipRegex.MatchString(line) {
+				context.skipLines = append(context.skipLines, line)
 				context.skipNode = true
 				continue
 			}
@@ -302,10 +561,14 @@ func parse(input io.Reader) ([]types.Tool, error) {
 			}
 
 			// Look for params
-			if isParam, err := isParam(line, &context.tool); err != nil {
+			if isParam, err := isParam(line, &context.tool, scan); err != nil {
 				return nil, NewErrLine("", lineNo, err)
 			} else if isParam {
 				context.seenParam = true
+				continue
+			} else if endHeaderRegex.MatchString(line) {
+				// force the end of the header and don't include the current line in the header
+				context.inBody = true
 				continue
 			}
 		}

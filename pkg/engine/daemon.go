@@ -11,12 +11,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gptscript-ai/gptscript/pkg/system"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
+var ports Ports
+
 type Ports struct {
-	daemonPorts map[string]int64
-	daemonLock  sync.Mutex
+	daemonPorts    map[string]int64
+	daemonsRunning map[string]func()
+	daemonLock     sync.Mutex
 
 	startPort, endPort int64
 	usedPorts          map[int64]struct{}
@@ -25,32 +29,54 @@ type Ports struct {
 	daemonWG           sync.WaitGroup
 }
 
-func (p *Ports) SetPorts(start, end int64) {
-	p.startPort = start
-	p.endPort = end
+func IsDaemonRunning(url string) bool {
+	ports.daemonLock.Lock()
+	defer ports.daemonLock.Unlock()
+	_, ok := ports.daemonsRunning[url]
+	return ok
 }
 
-func (p *Ports) CloseDaemons() {
-	p.daemonLock.Lock()
-	if p.daemonCtx == nil {
-		p.daemonLock.Unlock()
+func SetPorts(start, end int64) {
+	ports.daemonLock.Lock()
+	defer ports.daemonLock.Unlock()
+	if ports.startPort == 0 && ports.endPort == 0 {
+		ports.startPort = start
+		ports.endPort = end
+	}
+}
+
+func CloseDaemons() {
+	ports.daemonLock.Lock()
+	if ports.daemonCtx == nil {
+		ports.daemonLock.Unlock()
 		return
 	}
-	p.daemonLock.Unlock()
+	ports.daemonLock.Unlock()
 
-	p.daemonClose()
-	p.daemonWG.Wait()
+	ports.daemonClose()
+	ports.daemonWG.Wait()
 }
 
-func (p *Ports) NextPort() int64 {
-	if p.startPort == 0 {
-		p.startPort = 10240
-		p.endPort = 11240
+func StopDaemon(url string) {
+	ports.daemonLock.Lock()
+	defer ports.daemonLock.Unlock()
+
+	if stop := ports.daemonsRunning[url]; stop != nil {
+		stop()
+	}
+
+	delete(ports.daemonsRunning, url)
+}
+
+func nextPort() int64 {
+	if ports.startPort == 0 {
+		ports.startPort = 10240
+		ports.endPort = 11240
 	}
 	// This is pretty simple and inefficient approach, but also never releases ports
-	count := p.endPort - p.startPort + 1
+	count := ports.endPort - ports.startPort + 1
 	toTry := make([]int64, 0, count)
-	for i := p.startPort; i <= p.endPort; i++ {
+	for i := ports.startPort; i <= ports.endPort; i++ {
 		toTry = append(toTry, i)
 	}
 
@@ -59,13 +85,13 @@ func (p *Ports) NextPort() int64 {
 	})
 
 	for _, nextPort := range toTry {
-		if _, ok := p.usedPorts[nextPort]; ok {
+		if _, ok := ports.usedPorts[nextPort]; ok {
 			continue
 		}
-		if p.usedPorts == nil {
-			p.usedPorts = map[int64]struct{}{}
+		if ports.usedPorts == nil {
+			ports.usedPorts = map[int64]struct{}{}
 		}
-		p.usedPorts[nextPort] = struct{}{}
+		ports.usedPorts[nextPort] = struct{}{}
 		return nextPort
 	}
 
@@ -93,26 +119,31 @@ func getPath(instructions string) (string, string) {
 	return strings.TrimSpace(rest), strings.TrimSpace(value)
 }
 
-func (e *Engine) startDaemon(_ context.Context, tool types.Tool) (string, error) {
-	e.Ports.daemonLock.Lock()
-	defer e.Ports.daemonLock.Unlock()
+func (e *Engine) startDaemon(tool types.Tool) (string, error) {
+	ports.daemonLock.Lock()
+	defer ports.daemonLock.Unlock()
 
 	instructions := strings.TrimPrefix(tool.Instructions, types.DaemonPrefix)
 	instructions, path := getPath(instructions)
 	tool.Instructions = types.CommandPrefix + instructions
 
-	port, ok := e.Ports.daemonPorts[tool.ID]
+	port, ok := ports.daemonPorts[tool.ID]
 	url := fmt.Sprintf("http://127.0.0.1:%d%s", port, path)
-	if ok {
+	if ok && ports.daemonsRunning[url] != nil {
 		return url, nil
 	}
 
-	if e.Ports.daemonCtx == nil {
-		e.Ports.daemonCtx, e.Ports.daemonClose = context.WithCancel(context.Background())
+	if ports.daemonCtx == nil {
+		var cancel func()
+		ports.daemonCtx, cancel = context.WithCancel(context.Background())
+		ports.daemonClose = func() {
+			cancel()
+			ports.daemonCtx = nil
+		}
 	}
 
-	ctx := e.Ports.daemonCtx
-	port = e.Ports.NextPort()
+	ctx := ports.daemonCtx
+	port = nextPort()
 	url = fmt.Sprintf("http://127.0.0.1:%d%s", port, path)
 
 	cmd, stop, err := e.newCommand(ctx, []string{
@@ -121,6 +152,7 @@ func (e *Engine) startDaemon(_ context.Context, tool types.Tool) (string, error)
 	},
 		tool,
 		"{}",
+		false,
 	)
 	if err != nil {
 		return url, err
@@ -132,49 +164,51 @@ func (e *Engine) startDaemon(_ context.Context, tool types.Tool) (string, error)
 	}
 
 	// Loop back to gptscript to help with process supervision
-	cmd.Args = append([]string{os.Args[0], "sys.daemon", cmd.Path}, cmd.Args[1:]...)
-	cmd.Path = self()
+	cmd.Args = append([]string{system.Bin(), "sys.daemon", cmd.Path}, cmd.Args[1:]...)
+	cmd.Path = system.Bin()
 
 	cmd.Stdin = r
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	log.Infof("launched [%s][%s] port [%d] %v", tool.Parameters.Name, tool.ID, port, cmd.Args)
+	cmd.Cancel = func() error {
+		_ = r.Close()
+		return w.Close()
+	}
+
+	log.Infof("launched [%s][%s] port [%d] %v", tool.Name, tool.ID, port, cmd.Args)
 	if err := cmd.Start(); err != nil {
 		stop()
 		return url, err
 	}
 
-	if e.Ports.daemonPorts == nil {
-		e.Ports.daemonPorts = map[string]int64{}
+	if ports.daemonPorts == nil {
+		ports.daemonPorts = map[string]int64{}
+		ports.daemonsRunning = map[string]func(){}
 	}
-	e.Ports.daemonPorts[tool.ID] = port
+	ports.daemonPorts[tool.ID] = port
+	ports.daemonsRunning[url] = stop
 
-	killedCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
+	killedCtx, killedCancel := context.WithCancelCause(ctx)
+	defer killedCancel(nil)
 
+	ports.daemonWG.Add(1)
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			log.Errorf("daemon exited tool [%s] %v: %v", tool.Parameters.Name, cmd.Args, err)
+			log.Debugf("daemon exited tool [%s] %v: %v", tool.Name, cmd.Args, err)
 		}
 		_ = r.Close()
 		_ = w.Close()
 
-		cancel(err)
+		killedCancel(err)
 		stop()
-		e.Ports.daemonLock.Lock()
-		defer e.Ports.daemonLock.Unlock()
+		ports.daemonLock.Lock()
+		defer ports.daemonLock.Unlock()
 
-		delete(e.Ports.daemonPorts, tool.ID)
+		delete(ports.daemonPorts, tool.ID)
+		delete(ports.daemonsRunning, url)
+		ports.daemonWG.Done()
 	}()
-
-	e.Ports.daemonWG.Add(1)
-	context.AfterFunc(ctx, func() {
-		if err := cmd.Process.Kill(); err != nil {
-			log.Debugf("daemon failed to kill tool [%s] process: %v", tool.Parameters.Name, err)
-		}
-		e.Ports.daemonWG.Done()
-	})
 
 	for i := 0; i < 120; i++ {
 		resp, err := http.Get(url)
@@ -195,8 +229,8 @@ func (e *Engine) startDaemon(_ context.Context, tool types.Tool) (string, error)
 	return url, fmt.Errorf("timeout waiting for 200 response from GET %s", url)
 }
 
-func (e *Engine) runDaemon(ctx context.Context, prg *types.Program, tool types.Tool, input string) (cmdRet *Return, cmdErr error) {
-	url, err := e.startDaemon(ctx, tool)
+func (e *Engine) runDaemon(ctx Context, tool types.Tool, input string) (cmdRet *Return, cmdErr error) {
+	url, err := e.startDaemon(tool)
 	if err != nil {
 		return nil, err
 	}
@@ -204,5 +238,5 @@ func (e *Engine) runDaemon(ctx context.Context, prg *types.Program, tool types.T
 	tool.Instructions = strings.Join(append([]string{
 		types.CommandPrefix + url,
 	}, strings.Split(tool.Instructions, "\n")[1:]...), "\n")
-	return e.runHTTP(ctx, prg, tool, input)
+	return e.runHTTP(ctx, tool, input)
 }

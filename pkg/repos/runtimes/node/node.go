@@ -12,30 +12,42 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/debugcmd"
 	runtimeEnv "github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/repos/download"
+	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
 //go:embed SHASUMS256.txt.asc
 var releasesData []byte
 
-const downloadURL = "https://nodejs.org/dist/%s/"
+const (
+	downloadURL = "https://nodejs.org/dist/%s/"
+	packageJSON = "package.json"
+	nodeModules = "node_modules"
+)
 
 type Runtime struct {
 	// version something like "3.12"
 	Version string
 	// If true this is the version that will be used for python or python3
 	Default bool
+
+	runtimeSetupLock sync.Mutex
 }
 
 func (r *Runtime) ID() string {
 	return "node" + r.Version
 }
 
-func (r *Runtime) Supports(cmd []string) bool {
+func (r *Runtime) Binary(_ context.Context, _ types.Tool, _, _ string, _ []string) (bool, []string, error) {
+	return false, nil, nil
+}
+
+func (r *Runtime) Supports(_ types.Tool, cmd []string) bool {
 	for _, testCmd := range []string{"node", "npx", "npm"} {
 		if r.supports(testCmd, cmd) {
 			return true
@@ -54,15 +66,37 @@ func (r *Runtime) supports(testCmd string, cmd []string) bool {
 	return runtimeEnv.Matches(cmd, testCmd)
 }
 
-func (r *Runtime) Setup(ctx context.Context, dataRoot, toolSource string, env []string) ([]string, error) {
+func (r *Runtime) GetHash(tool types.Tool) (string, error) {
+	if !tool.Source.IsGit() && tool.WorkingDir != "" {
+		var prefix string
+		// This hashes if the node_modules directory was deleted
+		if s, err := os.Stat(filepath.Join(tool.WorkingDir, nodeModules)); err == nil {
+			prefix = hash.Digest(tool.WorkingDir + s.ModTime().String())[:7]
+		} else if s, err := os.Stat(tool.WorkingDir); err == nil {
+			prefix = hash.Digest(tool.WorkingDir + s.ModTime().String())[:7]
+		}
+		if s, err := os.Stat(filepath.Join(tool.WorkingDir, packageJSON)); err == nil {
+			return prefix + hash.Digest(tool.WorkingDir + s.ModTime().String())[:7], nil
+		}
+	}
+	return "", nil
+}
+
+func (r *Runtime) Setup(ctx context.Context, tool types.Tool, dataRoot, toolSource string, env []string) ([]string, error) {
 	binPath, err := r.getRuntime(ctx, dataRoot)
 	if err != nil {
 		return nil, err
 	}
 
 	newEnv := runtimeEnv.AppendPath(env, binPath)
-	if err := r.runNPM(ctx, toolSource, binPath, append(env, newEnv...)); err != nil {
+	if err := r.runNPM(ctx, tool, toolSource, binPath, append(env, newEnv...)); err != nil {
 		return nil, err
+	}
+
+	if _, ok := tool.MetaData[packageJSON]; ok {
+		newEnv = append(newEnv, "GPTSCRIPT_TMPDIR="+toolSource)
+	} else if !tool.Source.IsGit() && tool.WorkingDir != "" {
+		newEnv = append(newEnv, "GPTSCRIPT_TMPDIR="+tool.WorkingDir, "GPTSCRIPT_RUNTIME_DEV=true")
 	}
 
 	return newEnv, nil
@@ -100,11 +134,26 @@ func (r *Runtime) getReleaseAndDigest() (string, string, error) {
 	return "", "", fmt.Errorf("failed to find %s release for os=%s arch=%s", r.ID(), osName(), arch())
 }
 
-func (r *Runtime) runNPM(ctx context.Context, toolSource, binDir string, env []string) error {
-	log.Infof("Running npm in %s", toolSource)
+func (r *Runtime) runNPM(ctx context.Context, tool types.Tool, toolSource, binDir string, env []string) error {
+	log.InfofCtx(ctx, "Running npm in %s", toolSource)
 	cmd := debugcmd.New(ctx, filepath.Join(binDir, "npm"), "install")
 	cmd.Env = env
 	cmd.Dir = toolSource
+	if contents, ok := tool.MetaData[packageJSON]; ok {
+		if err := os.WriteFile(filepath.Join(toolSource, packageJSON), []byte(contents+"\n"), 0644); err != nil {
+			return err
+		}
+	} else if !tool.Source.IsGit() {
+		if tool.WorkingDir == "" {
+			return nil
+		}
+		if _, err := os.Stat(filepath.Join(tool.WorkingDir, packageJSON)); errors.Is(err, fs.ErrNotExist) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		cmd.Dir = tool.WorkingDir
+	}
 	return cmd.Run()
 }
 
@@ -129,6 +178,9 @@ func (r *Runtime) binDir(rel string) (string, error) {
 }
 
 func (r *Runtime) getRuntime(ctx context.Context, cwd string) (string, error) {
+	r.runtimeSetupLock.Lock()
+	defer r.runtimeSetupLock.Unlock()
+
 	url, sha, err := r.getReleaseAndDigest()
 	if err != nil {
 		return "", err
@@ -141,7 +193,7 @@ func (r *Runtime) getRuntime(ctx context.Context, cwd string) (string, error) {
 		return "", err
 	}
 
-	log.Infof("Downloading Node %s.x", r.Version)
+	log.InfofCtx(ctx, "Downloading Node %s.x", r.Version)
 	tmp := target + ".download"
 	defer os.RemoveAll(tmp)
 

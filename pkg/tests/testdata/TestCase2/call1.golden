@@ -1,0 +1,32 @@
+`{
+  "model": "gpt-4o",
+  "tools": [
+    {
+      "function": {
+        "toolID": "testdata/TestCase2/test.gpt:bob",
+        "name": "bob",
+        "description": "I'm Bob, a friendly guy.",
+        "parameters": {
+          "properties": {
+            "question": {
+              "description": "The question to ask Bob.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "text": "Ask Bob how he is doing and let me know exactly what he said."
+        }
+      ],
+      "usage": {}
+    }
+  ]
+}`

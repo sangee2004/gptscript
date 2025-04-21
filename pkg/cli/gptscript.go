@@ -6,26 +6,31 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/acorn-io/cmd"
 	"github.com/fatih/color"
-	"github.com/gptscript-ai/gptscript/pkg/assemble"
+	"github.com/gptscript-ai/cmd"
+	gptscript2 "github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/auth"
 	"github.com/gptscript-ai/gptscript/pkg/builtin"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
 	"github.com/gptscript-ai/gptscript/pkg/chat"
-	"github.com/gptscript-ai/gptscript/pkg/confirm"
+	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/gptscript-ai/gptscript/pkg/gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/input"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
+	"github.com/gptscript-ai/gptscript/pkg/loader/github"
 	"github.com/gptscript-ai/gptscript/pkg/monitor"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	"github.com/gptscript-ai/gptscript/pkg/openai"
-	"github.com/gptscript-ai/gptscript/pkg/server"
+	"github.com/gptscript-ai/gptscript/pkg/runner"
+	"github.com/gptscript-ai/gptscript/pkg/system"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/gptscript-ai/gptscript/pkg/version"
+	"github.com/gptscript-ai/tui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
@@ -41,35 +46,51 @@ type GPTScript struct {
 	CacheOptions
 	OpenAIOptions
 	DisplayOptions
-	Color              *bool  `usage:"Use color in output (default true)" default:"true"`
-	Confirm            bool   `usage:"Prompt before running potentially dangerous commands"`
-	Debug              bool   `usage:"Enable debug logging"`
-	Quiet              *bool  `usage:"No output logging (set --quiet=false to force on even when there is no TTY)" short:"q"`
-	Output             string `usage:"Save output to a file, or - for stdout" short:"o"`
-	EventsStreamTo     string `usage:"Stream events to this location, could be a file descriptor/handle (e.g. fd://2), filename, or named pipe (e.g. \\\\.\\pipe\\my-pipe)" name:"events-stream-to"`
-	Input              string `usage:"Read input from a file (\"-\" for stdin)" short:"f"`
-	SubTool            string `usage:"Use tool of this name, not the first tool in file" local:"true"`
-	Assemble           bool   `usage:"Assemble tool to a single artifact, saved to --output" hidden:"true" local:"true"`
-	ListModels         bool   `usage:"List the models available and exit" local:"true"`
-	ListTools          bool   `usage:"List built-in tools and exit" local:"true"`
-	Server             bool   `usage:"Start server" local:"true"`
-	ListenAddress      string `usage:"Server listen address" default:"127.0.0.1:9090" local:"true"`
-	Chdir              string `usage:"Change current working directory" short:"C"`
-	Daemon             bool   `usage:"Run tool as a daemon" local:"true" hidden:"true"`
-	Ports              string `usage:"The port range to use for ephemeral daemon ports (ex: 11000-12000)" hidden:"true"`
-	CredentialContext  string `usage:"Context name in which to store credentials" default:"default"`
-	CredentialOverride string `usage:"Credentials to override (ex: --credential-override github.com/example/cred-tool:API_TOKEN=1234)"`
-	ChatState          string `usage:"The chat state to continue, or null to start a new chat and return the state"`
-	ForceChat          bool   `usage:"Force an interactive chat session if even the top level tool is not a chat tool"`
+	SystemToolsDir string `usage:"Directory that contains system managed tool for which GPTScript will not manage the runtime"`
+	Color          *bool  `usage:"Use color in output (default true)" default:"true"`
+	Confirm        bool   `usage:"Prompt before running potentially dangerous commands"`
+	Debug          bool   `usage:"Enable debug logging"`
+	NoTrunc        bool   `usage:"Do not truncate long log messages"`
+	Quiet          *bool  `usage:"No output logging (set --quiet=false to force on even when there is no TTY)" short:"q"`
+	Output         string `usage:"Save output to a file, or - for stdout" short:"o"`
+	EventsStreamTo string `usage:"Stream events to this location, could be a file descriptor/handle (e.g. fd://2), filename, or named pipe (e.g. \\\\.\\pipe\\my-pipe)" name:"events-stream-to"`
+	// Input should not be using GPTSCRIPT_INPUT env var because that is the same value that is set in tool executions
+	Input                    string   `usage:"Read input from a file (\"-\" for stdin)" short:"f" env:"GPTSCRIPT_INPUT_FILE"`
+	SubTool                  string   `usage:"Use tool of this name, not the first tool in file" local:"true"`
+	ListModels               bool     `usage:"List the models available and exit" local:"true"`
+	ListTools                bool     `usage:"List built-in tools and exit" local:"true"`
+	ListenAddress            string   `usage:"Server listen address" default:"127.0.0.1:0" hidden:"true"`
+	Chdir                    string   `usage:"Change current working directory" short:"C"`
+	Daemon                   bool     `usage:"Run tool as a daemon" local:"true" hidden:"true"`
+	Ports                    string   `usage:"The port range to use for ephemeral daemon ports (ex: 11000-12000)" hidden:"true"`
+	CredentialContext        []string `usage:"Context name(s) in which to store credentials"`
+	CredentialOverride       []string `usage:"Credentials to override (ex: --credential-override github.com/example/cred-tool:API_TOKEN=1234)"`
+	ChatState                string   `usage:"The chat state to continue, or null to start a new chat and return the state" local:"true"`
+	ForceChat                bool     `usage:"Force an interactive chat session if even the top level tool is not a chat tool" local:"true"`
+	ForceSequential          bool     `usage:"Force parallel calls to run sequentially" local:"true"`
+	Workspace                string   `usage:"Directory to use for the workspace, if specified it will not be deleted on exit"`
+	UI                       bool     `usage:"Launch the UI" local:"true" name:"ui"`
+	DisableTUI               bool     `usage:"Don't use chat TUI but instead verbose output" local:"true" name:"disable-tui"`
+	SaveChatStateFile        string   `usage:"A file to save the chat state to so that a conversation can be resumed with --chat-state" local:"true"`
+	DefaultModelProvider     string   `usage:"Default LLM model provider to use, this will override OpenAI settings"`
+	GithubEnterpriseHostname string   `usage:"The host name for a Github Enterprise instance to enable for remote loading" local:"true"`
 
 	readData []byte
 }
 
 func New() *cobra.Command {
 	root := &GPTScript{}
-	command := cmd.Command(root, &Eval{
-		gptscript: root,
-	}, &Credential{root: root})
+	command := cmd.Command(
+		root,
+		&Eval{gptscript: root},
+		&Credential{root: root},
+		&Parse{gptscript: root},
+		&Fmt{},
+		&Getenv{},
+		&SDKServer{
+			GPTScript: root,
+		},
+	)
 
 	// Hide all the global flags for the credential subcommand.
 	for _, child := range command.Commands() {
@@ -78,6 +99,7 @@ func New() *cobra.Command {
 				newFlag := pflag.Flag{
 					Name:  f.Name,
 					Usage: f.Usage,
+					Value: f.Value,
 				}
 
 				if f.Name != "credential-context" { // We want to keep credential-context
@@ -91,6 +113,7 @@ func New() *cobra.Command {
 					newFlag := pflag.Flag{
 						Name:  f.Name,
 						Usage: f.Usage,
+						Value: f.Value,
 					}
 
 					if f.Name != "credential-context" {
@@ -107,22 +130,26 @@ func New() *cobra.Command {
 	return command
 }
 
-func (r *GPTScript) NewRunContext(cmd *cobra.Command) context.Context {
-	ctx := cmd.Context()
-	if r.Confirm {
-		ctx = confirm.WithConfirm(ctx, confirm.TextPrompt{})
-	}
-	return ctx
-}
-
 func (r *GPTScript) NewGPTScriptOpts() (gptscript.Options, error) {
 	opts := gptscript.Options{
-		Cache:             cache.Options(r.CacheOptions),
-		OpenAI:            openai.Options(r.OpenAIOptions),
-		Monitor:           monitor.Options(r.DisplayOptions),
-		Quiet:             r.Quiet,
-		Env:               os.Environ(),
-		CredentialContext: r.CredentialContext,
+		Cache:   cache.Options(r.CacheOptions),
+		OpenAI:  openai.Options(r.OpenAIOptions),
+		Monitor: monitor.Options(r.DisplayOptions),
+		Runner: runner.Options{
+			CredentialOverrides: r.CredentialOverride,
+			Sequential:          r.ForceSequential,
+		},
+		Quiet:                r.Quiet,
+		Env:                  os.Environ(),
+		CredentialContexts:   r.CredentialContext,
+		Workspace:            r.Workspace,
+		DisablePromptServer:  r.UI,
+		DefaultModelProvider: r.DefaultModelProvider,
+		SystemToolsDir:       r.SystemToolsDir,
+	}
+
+	if r.Confirm {
+		opts.Runner.Authorizer = auth.Authorize
 	}
 
 	if r.Ports != "" {
@@ -141,8 +168,6 @@ func (r *GPTScript) NewGPTScriptOpts() (gptscript.Options, error) {
 		opts.Runner.StartPort = startNum
 		opts.Runner.EndPort = endNum
 	}
-
-	opts.Runner.CredentialOverride = r.CredentialOverride
 
 	if r.EventsStreamTo != "" {
 		mf, err := monitor.NewFileFactory(r.EventsStreamTo)
@@ -204,6 +229,8 @@ func (r *GPTScript) PersistentPre(*cobra.Command, []string) error {
 		}
 	}
 
+	system.SetBinToSelf()
+
 	if r.DefaultModel != "" {
 		builtin.SetDefaultModel(r.DefaultModel)
 	}
@@ -225,7 +252,7 @@ func (r *GPTScript) PersistentPre(*cobra.Command, []string) error {
 			r.Color = new(bool)
 		}
 	} else {
-		mvl.SetSimpleFormat()
+		mvl.SetSimpleFormat(!r.NoTrunc)
 		if *r.Quiet {
 			mvl.SetError()
 		}
@@ -235,7 +262,7 @@ func (r *GPTScript) PersistentPre(*cobra.Command, []string) error {
 		color.NoColor = !*r.Color
 	}
 
-	if r.DefaultModel != "gpt-4-turbo-preview" {
+	if r.DefaultModel != openai.DefaultModel {
 		log.Infof("WARNING: Changing the default model can have unknown behavior for existing tools. Use the model field per tool instead.")
 	}
 
@@ -247,11 +274,14 @@ func (r *GPTScript) listModels(ctx context.Context, gptScript *gptscript.GPTScri
 	if err != nil {
 		return err
 	}
-	fmt.Println(strings.Join(models, "\n"))
+
+	for _, model := range models {
+		fmt.Println(model.ID)
+	}
 	return nil
 }
 
-func (r *GPTScript) readProgram(ctx context.Context, args []string) (prg types.Program, err error) {
+func (r *GPTScript) readProgram(ctx context.Context, runner *gptscript.GPTScript, args []string) (prg types.Program, err error) {
 	if len(args) == 0 {
 		return
 	}
@@ -270,14 +300,18 @@ func (r *GPTScript) readProgram(ctx context.Context, args []string) (prg types.P
 			}
 			r.readData = data
 		}
-		return loader.ProgramFromSource(ctx, string(data), r.SubTool)
+		return loader.ProgramFromSource(ctx, string(data), r.SubTool, loader.Options{
+			Cache: runner.Cache,
+		})
 	}
 
-	return loader.Program(ctx, args[0], r.SubTool)
+	return loader.Program(ctx, args[0], r.SubTool, loader.Options{
+		Cache: runner.Cache,
+	})
 }
 
 func (r *GPTScript) PrintOutput(toolInput, toolOutput string) (err error) {
-	if r.Output != "" {
+	if r.Output != "" && r.Output != "-" {
 		err = os.WriteFile(r.Output, []byte(toolOutput), 0644)
 		if err != nil {
 			return err
@@ -305,31 +339,83 @@ func (r *GPTScript) Run(cmd *cobra.Command, args []string) (retErr error) {
 		return err
 	}
 
-	ctx := cmd.Context()
-
-	if r.Server {
-		s, err := server.New(&server.Options{
-			ListenAddress: r.ListenAddress,
-			GPTScript:     gptOpt,
-		})
-		if err != nil {
-			return err
-		}
-		defer s.Close()
-		return s.Start(ctx)
+	if r.GithubEnterpriseHostname != "" {
+		loader.AddVSC(github.LoaderForPrefix(r.GithubEnterpriseHostname))
 	}
 
-	gptScript, err := gptscript.New(&gptOpt)
+	// If the user is trying to launch the chat-builder UI, then set up the tool and options here.
+	if r.UI {
+		if os.Getenv(system.BinEnvVar) == "" {
+			gptOpt.Env = append(gptOpt.Env, system.BinEnvVar+"="+system.Bin())
+		}
+
+		// Pass the corrected environment variables for SDK server options
+		if r.DefaultModel != "" {
+			gptOpt.Env = append(gptOpt.Env, "GPTSCRIPT_SDKSERVER_DEFAULT_MODEL="+r.DefaultModel)
+		}
+		if len(r.CredentialOverride) > 0 {
+			gptOpt.Env = append(gptOpt.Env, "GPTSCRIPT_SDKSERVER_CREDENTIAL_OVERRIDE="+strings.Join(r.CredentialOverride, ","))
+		}
+
+		// If args has more than one element, then the user has provided a file.
+		if len(args) > 0 {
+			file := args[0]
+			if file == "-" {
+				return fmt.Errorf("chat UI only supports files, cannot read from stdin")
+			}
+
+			// If the file is external, then set the SCRIPTS_PATH to the current working directory. Otherwise,
+			// set it to the directory of the script and set the file to the base.
+			if !strings.HasPrefix(file, "http://") && !strings.HasPrefix(file, "https://") && !strings.HasPrefix(file, "github.com") {
+				absPathToScript, err := filepath.Abs(file)
+				if err != nil {
+					return fmt.Errorf("cannot determine absolute path to script %s: %v", file, err)
+				}
+				gptOpt.Env = append(gptOpt.Env, "SCRIPTS_PATH="+filepath.Dir(absPathToScript))
+				file = strings.TrimSuffix(filepath.Base(file), ".gpt")
+			} else {
+				cwd, err := os.Getwd()
+				if err != nil {
+					return fmt.Errorf("could not determine current working directory: %w", err)
+				}
+				gptOpt.Env = append(gptOpt.Env, "SCRIPTS_PATH="+cwd)
+			}
+
+			gptOpt.Env = append(gptOpt.Env, "UI_RUN_FILE="+file)
+			// Remove the file from args because the above line will pass it to the UI tool.
+			args = args[1:]
+		} else {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("could not determine current working directory: %w", err)
+			}
+			gptOpt.Env = append(gptOpt.Env, "SCRIPTS_PATH="+cwd)
+		}
+
+		// The UI must run in daemon mode.
+		r.Daemon = true
+		// Use the UI tool as the first argument.
+		args = append([]string{
+			env.VarOrDefault("GPTSCRIPT_CHAT_UI_TOOL", "github.com/gptscript-ai/ui@v0.9.4"),
+		}, args...)
+	}
+
+	ctx := cmd.Context()
+
+	gptScript, err := gptscript.New(ctx, gptOpt)
 	if err != nil {
 		return err
 	}
-	defer gptScript.Close()
+	defer gptScript.Close(true)
 
 	if r.ListModels {
+		if r.DefaultModelProvider != "" {
+			args = append(args, r.DefaultModelProvider)
+		}
 		return r.listModels(ctx, gptScript, args)
 	}
 
-	prg, err := r.readProgram(ctx, args)
+	prg, err := r.readProgram(ctx, gptScript, args)
 	if err != nil {
 		return err
 	}
@@ -351,27 +437,23 @@ func (r *GPTScript) Run(cmd *cobra.Command, args []string) (retErr error) {
 		return cmd.Help()
 	}
 
-	if r.Assemble {
-		var out io.Writer = os.Stdout
-		if r.Output != "" && r.Output != "-" {
-			f, err := os.Create(r.Output)
-			if err != nil {
-				return fmt.Errorf("opening %s: %w", r.Output, err)
-			}
-			defer f.Close()
-			out = f
-		}
-
-		return assemble.Assemble(prg, out)
-	}
-
 	toolInput, err := input.FromCLI(r.Input, args)
 	if err != nil {
 		return err
 	}
 
-	if r.ChatState != "" {
-		resp, err := gptScript.Chat(r.NewRunContext(cmd), r.ChatState, prg, os.Environ(), toolInput)
+	var chatState string
+	if r.ChatState != "" && r.ChatState != "null" && !strings.HasPrefix(r.ChatState, "{") {
+		data, err := os.ReadFile(r.ChatState)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", r.ChatState, err)
+		}
+		chatState = string(data)
+	}
+
+	// This chat in a stateless mode
+	if r.SaveChatStateFile == "-" || r.SaveChatStateFile == "stdout" {
+		resp, err := gptScript.Chat(cmd.Context(), chatState, prg, gptOpt.Env, toolInput, runner.RunOptions{})
 		if err != nil {
 			return err
 		}
@@ -383,12 +465,37 @@ func (r *GPTScript) Run(cmd *cobra.Command, args []string) (retErr error) {
 	}
 
 	if prg.IsChat() || r.ForceChat {
-		return chat.Start(r.NewRunContext(cmd), nil, gptScript, func() (types.Program, error) {
-			return r.readProgram(ctx, args)
-		}, os.Environ(), toolInput)
+		if !r.DisableTUI && !r.Debug && !r.DebugMessages && !r.NoTrunc {
+			// Don't use cmd.Context() because then sigint will cancel everything
+			return tui.Run(context.Background(), args[0], tui.RunOptions{
+				ClientOpts: &gptscript2.GlobalOptions{
+					OpenAIAPIKey:         r.APIKey,
+					OpenAIBaseURL:        r.BaseURL,
+					DefaultModel:         r.DefaultModel,
+					DefaultModelProvider: r.DefaultModelProvider,
+				},
+				TrustedRepoPrefixes: []string{"github.com/gptscript-ai"},
+				DisableCache:        r.DisableCache,
+				CredentialOverrides: r.CredentialOverride,
+				Input:               toolInput,
+				SubTool:             r.SubTool,
+				Workspace:           r.Workspace,
+				SaveChatStateFile:   r.SaveChatStateFile,
+				ChatState:           chatState,
+			})
+		}
+		return chat.Start(cmd.Context(), chatState, gptScript, func() (types.Program, error) {
+			return r.readProgram(ctx, gptScript, args)
+		}, gptOpt.Env, toolInput, r.SaveChatStateFile)
 	}
 
-	s, err := gptScript.Run(r.NewRunContext(cmd), prg, os.Environ(), toolInput)
+	if r.UI {
+		// If the UI is running, then all prompts should go through the SDK and the UI.
+		// Not clearing ExtraEnv here would mean that the prompts would go through the terminal.
+		gptScript.ExtraEnv = nil
+	}
+
+	s, err := gptScript.Run(cmd.Context(), prg, gptOpt.Env, toolInput, runner.RunOptions{})
 	if err != nil {
 		return err
 	}

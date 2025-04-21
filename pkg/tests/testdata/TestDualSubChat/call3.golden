@@ -1,7 +1,7 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": false,
-  "Tools": [
+  "model": "gpt-4o",
+  "internalSystemPrompt": false,
+  "tools": [
     {
       "function": {
         "toolID": "sys.chat.finish",
@@ -9,8 +9,8 @@
         "description": "Concludes the conversation. This can not be used to ask a question.",
         "parameters": {
           "properties": {
-            "summary": {
-              "description": "A summary of the dialog",
+            "return": {
+              "description": "The instructed value to return or a summary of the dialog if no value is instructed",
               "type": "string"
             }
           },
@@ -19,14 +19,15 @@
       }
     }
   ],
-  "Messages": [
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "This is a chatbot2"
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "user",
@@ -34,12 +35,9 @@
         {
           "text": "Input to chatbot2"
         }
-      ]
+      ],
+      "usage": {}
     }
   ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  "chat": true
 }`

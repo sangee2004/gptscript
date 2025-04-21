@@ -1,75 +1,61 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": null,
-  "Tools": [
+  "model": "gpt-4o",
+  "tools": [
     {
       "function": {
-        "toolID": "testdata/TestExport/parent.gpt:5",
+        "toolID": "testdata/TestExport/parent.gpt:frommain",
         "name": "frommain",
         "parameters": {
           "properties": {
             "defaultPromptParameter": {
-              "description": "Prompt to send to the tool or assistant. This may be instructions or question.",
+              "description": "Prompt to send to the tool. This may be an instruction or question.",
               "type": "string"
             }
           },
-          "required": [
-            "defaultPromptParameter"
-          ],
           "type": "object"
         }
       }
     },
     {
       "function": {
-        "toolID": "testdata/TestExport/parent.gpt:11",
-        "name": "parentLocal",
-        "parameters": {
-          "properties": {
-            "defaultPromptParameter": {
-              "description": "Prompt to send to the tool or assistant. This may be instructions or question.",
-              "type": "string"
-            }
-          },
-          "required": [
-            "defaultPromptParameter"
-          ],
-          "type": "object"
-        }
-      }
-    },
-    {
-      "function": {
-        "toolID": "testdata/TestExport/sub/child.gpt:8",
+        "toolID": "testdata/TestExport/sub/child.gpt:transient",
         "name": "transient",
         "parameters": {
           "properties": {
             "defaultPromptParameter": {
-              "description": "Prompt to send to the tool or assistant. This may be instructions or question.",
+              "description": "Prompt to send to the tool. This may be an instruction or question.",
               "type": "string"
             }
           },
-          "required": [
-            "defaultPromptParameter"
-          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "function": {
+        "toolID": "testdata/TestExport/parent.gpt:parent-local",
+        "name": "parentLocal",
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the tool. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
           "type": "object"
         }
       }
     }
   ],
-  "Messages": [
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "the default"
         }
-      ]
+      ],
+      "usage": {}
     }
-  ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  ]
 }`

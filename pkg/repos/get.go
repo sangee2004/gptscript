@@ -4,20 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/locker"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/repos/git"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
 type Runtime interface {
 	ID() string
-	Supports(cmd []string) bool
-	Setup(ctx context.Context, dataRoot, toolSource string, env []string) ([]string, error)
+	Supports(tool types.Tool, cmd []string) bool
+	Binary(ctx context.Context, tool types.Tool, dataRoot, toolSource string, env []string) (bool, []string, error)
+	Setup(ctx context.Context, tool types.Tool, dataRoot, toolSource string, env []string) ([]string, error)
+	GetHash(tool types.Tool) (string, error)
 }
 
 type noopRuntime struct {
@@ -27,27 +31,47 @@ func (n noopRuntime) ID() string {
 	return "none"
 }
 
-func (n noopRuntime) Supports(_ []string) bool {
+func (n noopRuntime) GetHash(_ types.Tool) (string, error) {
+	return "", nil
+}
+
+func (n noopRuntime) Supports(_ types.Tool, _ []string) bool {
 	return false
 }
 
-func (n noopRuntime) Setup(_ context.Context, _, _ string, _ []string) ([]string, error) {
+func (n noopRuntime) Binary(_ context.Context, _ types.Tool, _, _ string, _ []string) (bool, []string, error) {
+	return false, nil, nil
+}
+
+func (n noopRuntime) Setup(_ context.Context, _ types.Tool, _, _ string, _ []string) ([]string, error) {
 	return nil, nil
 }
 
 type Manager struct {
+	cacheDir   string
 	storageDir string
 	gitDir     string
 	runtimeDir string
+	systemDirs []string
 	runtimes   []Runtime
 }
 
-func New(cacheDir string, runtimes ...Runtime) *Manager {
-	root := filepath.Join(cacheDir, "repos")
+func New(cacheDir, systemDir string, runtimes ...Runtime) *Manager {
+	var (
+		systemDirs []string
+		root       = filepath.Join(cacheDir, "repos")
+	)
+
+	if strings.TrimSpace(systemDir) != "" {
+		systemDirs = regexp.MustCompile("[;:,]").Split(strings.TrimSpace(systemDir), -1)
+	}
+
 	return &Manager{
+		cacheDir:   cacheDir,
 		storageDir: root,
 		gitDir:     filepath.Join(root, "git"),
 		runtimeDir: filepath.Join(root, "runtimes"),
+		systemDirs: systemDirs,
 		runtimes:   runtimes,
 	}
 }
@@ -56,8 +80,13 @@ func (m *Manager) setup(ctx context.Context, runtime Runtime, tool types.Tool, e
 	locker.Lock(tool.ID)
 	defer locker.Unlock(tool.ID)
 
-	target := filepath.Join(m.storageDir, tool.Source.Repo.Revision, runtime.ID())
-	targetFinal := filepath.Join(target, tool.Source.Repo.Path)
+	runtimeHash, err := runtime.GetHash(tool)
+	if err != nil {
+		return "", nil, err
+	}
+
+	target := filepath.Join(m.storageDir, tool.Source.Repo.Revision, tool.Source.Repo.Path, tool.Source.Repo.Name, runtime.ID())
+	targetFinal := filepath.Join(target, tool.Source.Repo.Path+runtimeHash)
 	doneFile := targetFinal + ".done"
 	envData, err := os.ReadFile(doneFile)
 	if err == nil {
@@ -74,13 +103,28 @@ func (m *Manager) setup(ctx context.Context, runtime Runtime, tool types.Tool, e
 	_ = os.RemoveAll(doneFile)
 	_ = os.RemoveAll(target)
 
-	if err := git.Checkout(ctx, m.gitDir, tool.Source.Repo.Root, tool.Source.Repo.Revision, target); err != nil {
-		return "", nil, err
-	}
+	var (
+		newEnv   []string
+		isBinary bool
+	)
 
-	newEnv, err := runtime.Setup(ctx, m.runtimeDir, targetFinal, env)
-	if err != nil {
+	if isBinary, newEnv, err = runtime.Binary(ctx, tool, m.runtimeDir, targetFinal, env); err != nil {
 		return "", nil, err
+	} else if !isBinary {
+		if tool.Source.Repo.VCS == "git" {
+			if err := git.Checkout(ctx, m.gitDir, tool.Source.Repo.Root, tool.Source.Repo.Revision, target); err != nil {
+				return "", nil, err
+			}
+		} else {
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return "", nil, err
+			}
+		}
+
+		newEnv, err = runtime.Setup(ctx, tool, m.runtimeDir, targetFinal, env)
+		if err != nil {
+			return "", nil, err
+		}
 	}
 
 	out, err := os.Create(doneFile + ".tmp")
@@ -101,19 +145,39 @@ func (m *Manager) setup(ctx context.Context, runtime Runtime, tool types.Tool, e
 }
 
 func (m *Manager) GetContext(ctx context.Context, tool types.Tool, cmd, env []string) (string, []string, error) {
-	if tool.Source.Repo == nil {
-		return tool.WorkingDir, env, nil
+	for _, systemDir := range m.systemDirs {
+		if strings.HasPrefix(tool.WorkingDir, systemDir) {
+			return tool.WorkingDir, env, nil
+		}
 	}
 
-	if tool.Source.Repo.VCS != "git" {
-		return "", nil, fmt.Errorf("only git is supported, found VCS %s for %s", tool.Source.Repo.VCS, tool.ID)
+	var isLocal bool
+	if tool.Source.Repo == nil {
+		isLocal = true
+		d, _ := json.Marshal(tool)
+		id := hash.Digest(d)[:12]
+		tool.Source.Repo = &types.Repo{
+			VCS:      "<local>",
+			Root:     id,
+			Path:     "/",
+			Name:     id,
+			Revision: id,
+		}
 	}
 
 	for _, runtime := range m.runtimes {
-		if runtime.Supports(cmd) {
+		if runtime.Supports(tool, cmd) {
 			log.Debugf("Runtime %s supports %v", runtime.ID(), cmd)
-			return m.setup(ctx, runtime, tool, env)
+			wd, env, err := m.setup(ctx, runtime, tool, env)
+			if isLocal {
+				wd = tool.WorkingDir
+			}
+			return wd, env, err
 		}
+	}
+
+	if isLocal {
+		return tool.WorkingDir, env, nil
 	}
 
 	return m.setup(ctx, &noopRuntime{}, tool, env)

@@ -12,17 +12,23 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/debugcmd"
 	runtimeEnv "github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/repos/download"
+	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
 //go:embed python.json
 var releasesData []byte
 
-const uvVersion = "uv==0.1.24"
+const (
+	uvVersion                = "uv==0.2.33"
+	requirementsTxt          = "requirements.txt"
+	gptscriptRequirementsTxt = "requirements-gptscript.txt"
+)
 
 type Release struct {
 	OS      string `json:"os,omitempty"`
@@ -37,13 +43,15 @@ type Runtime struct {
 	Version string
 	// If true this is the version that will be used for python or python3
 	Default bool
+
+	runtimeSetupLock sync.Mutex
 }
 
 func (r *Runtime) ID() string {
 	return "python" + r.Version
 }
 
-func (r *Runtime) Supports(cmd []string) bool {
+func (r *Runtime) Supports(_ types.Tool, cmd []string) bool {
 	if runtimeEnv.Matches(cmd, r.ID()) {
 		return true
 	}
@@ -76,7 +84,7 @@ func uvBin(binDir string) string {
 }
 
 func (r *Runtime) installVenv(ctx context.Context, binDir, venvPath string) error {
-	log.Infof("Creating virtualenv in %s", venvPath)
+	log.InfofCtx(ctx, "Creating virtualenv in %s", venvPath)
 	cmd := debugcmd.New(ctx, uvBin(binDir), "venv", "-p", pythonCmd(binDir), venvPath)
 	return cmd.Run()
 }
@@ -112,7 +120,7 @@ func (r *Runtime) copyPythonForWindows(binDir string) error {
 	return nil
 }
 
-func (r *Runtime) Setup(ctx context.Context, dataRoot, toolSource string, env []string) ([]string, error) {
+func (r *Runtime) Setup(ctx context.Context, tool types.Tool, dataRoot, toolSource string, env []string) ([]string, error) {
 	binPath, err := r.getRuntime(ctx, dataRoot)
 	if err != nil {
 		return nil, err
@@ -134,6 +142,9 @@ func (r *Runtime) Setup(ctx context.Context, dataRoot, toolSource string, env []
 	}
 
 	newEnv := runtimeEnv.AppendPath(env, venvBinPath)
+	if runtime.GOOS == "windows" && os.Getenv("PYTHONIOENCODING") == "" {
+		newEnv = append(newEnv, "PYTHONIOENCODING=utf-8")
+	}
 	newEnv = append(newEnv, "VIRTUAL_ENV="+venvPath)
 
 	if runtime.GOOS == "windows" {
@@ -142,7 +153,7 @@ func (r *Runtime) Setup(ctx context.Context, dataRoot, toolSource string, env []
 		}
 	}
 
-	if err := r.runPip(ctx, toolSource, binPath, append(env, newEnv...)); err != nil {
+	if err := r.runPip(ctx, tool, toolSource, binPath, append(env, newEnv...)); err != nil {
 		return nil, err
 	}
 
@@ -167,10 +178,48 @@ func (r *Runtime) getReleaseAndDigest() (string, string, error) {
 	return "", "", fmt.Errorf("failed to find an python runtime for %s", r.Version)
 }
 
-func (r *Runtime) runPip(ctx context.Context, toolSource, binDir string, env []string) error {
-	log.Infof("Running pip in %s", toolSource)
-	for _, req := range []string{"requirements-gptscript.txt", "requirements.txt"} {
-		reqFile := filepath.Join(toolSource, req)
+func (r *Runtime) Binary(_ context.Context, _ types.Tool, _, _ string, _ []string) (bool, []string, error) {
+	return false, nil, nil
+}
+
+func (r *Runtime) GetHash(tool types.Tool) (string, error) {
+	if !tool.Source.IsGit() && tool.WorkingDir != "" {
+		if _, ok := tool.MetaData[requirementsTxt]; ok {
+			return "", nil
+		}
+		for _, req := range []string{gptscriptRequirementsTxt, requirementsTxt} {
+			reqFile := filepath.Join(tool.WorkingDir, req)
+			if s, err := os.Stat(reqFile); err == nil && !s.IsDir() {
+				return hash.Digest(tool.WorkingDir + s.ModTime().String())[:7], nil
+			}
+		}
+	}
+
+	return "", nil
+}
+
+func (r *Runtime) runPip(ctx context.Context, tool types.Tool, toolSource, binDir string, env []string) error {
+	log.InfofCtx(ctx, "Running pip in %s", toolSource)
+	if content, ok := tool.MetaData[requirementsTxt]; ok {
+		reqFile := filepath.Join(toolSource, requirementsTxt)
+		if err := os.WriteFile(reqFile, []byte(content+"\n"), 0644); err != nil {
+			return err
+		}
+		cmd := debugcmd.New(ctx, uvBin(binDir), "pip", "install", "-r", reqFile)
+		cmd.Env = env
+		return cmd.Run()
+	}
+
+	reqPath := toolSource
+	if !tool.Source.IsGit() {
+		if tool.WorkingDir == "" {
+			return nil
+		}
+		reqPath = tool.WorkingDir
+	}
+
+	for _, req := range []string{gptscriptRequirementsTxt, requirementsTxt} {
+		reqFile := filepath.Join(reqPath, req)
 		if s, err := os.Stat(reqFile); err == nil && !s.IsDir() {
 			cmd := debugcmd.New(ctx, uvBin(binDir), "pip", "install", "-r", reqFile)
 			cmd.Env = env
@@ -182,11 +231,15 @@ func (r *Runtime) runPip(ctx context.Context, toolSource, binDir string, env []s
 }
 
 func (r *Runtime) setupUV(ctx context.Context, tmp string) error {
+	log.InfofCtx(ctx, "Install uv %s", uvVersion)
 	cmd := debugcmd.New(ctx, pythonCmd(tmp), "-m", "pip", "install", uvVersion)
 	return cmd.Run()
 }
 
 func (r *Runtime) getRuntime(ctx context.Context, cwd string) (string, error) {
+	r.runtimeSetupLock.Lock()
+	defer r.runtimeSetupLock.Unlock()
+
 	url, sha, err := r.getReleaseAndDigest()
 	if err != nil {
 		return "", err
@@ -200,7 +253,7 @@ func (r *Runtime) getRuntime(ctx context.Context, cwd string) (string, error) {
 		return "", err
 	}
 
-	log.Infof("Downloading Python %s.x", r.Version)
+	log.InfofCtx(ctx, "Downloading Python %s.x", r.Version)
 	tmp := target + ".download"
 	defer os.RemoveAll(tmp)
 

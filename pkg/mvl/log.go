@@ -1,6 +1,8 @@
 package mvl
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,11 +19,14 @@ import (
 // So this is simple place to make a better decision later about logging frameworks. I only care about
 // the interface, not the implementation. Smarter people do that well.
 
-func SetSimpleFormat() {
-	logrus.SetFormatter(&formatter{})
+func SetSimpleFormat(trunc bool) {
+	logrus.SetFormatter(&formatter{
+		trunc: trunc,
+	})
 }
 
 type formatter struct {
+	trunc bool
 }
 
 func (f formatter) Format(entry *logrus.Entry) ([]byte, error) {
@@ -30,13 +35,39 @@ func (f formatter) Format(entry *logrus.Entry) ([]byte, error) {
 		msg += fmt.Sprintf(" [input=%s]", i)
 	}
 	if i, ok := entry.Data["output"].(string); ok && i != "" {
+		if f.trunc {
+			i = strings.TrimSpace(i)
+			addDot := false
+			if len(i) > 100 {
+				addDot = true
+				i = i[:100]
+			}
+			d, _ := json.Marshal(i)
+			i = string(d)
+			i = strings.TrimSpace(i[1 : len(i)-1])
+			if addDot {
+				i += "..."
+			}
+		}
 		msg += fmt.Sprintf(" [output=%s]", i)
 	}
 	if i, ok := entry.Data["request"]; ok && i != "" {
 		msg += fmt.Sprintf(" [request=%s]", i)
 	}
+	if i, ok := entry.Data["cached"]; ok && i == true {
+		msg += " [cached]"
+	}
 	if i, ok := entry.Data["response"]; ok && i != "" {
 		msg += fmt.Sprintf(" [response=%s]", i)
+	}
+	if i, ok := entry.Data["total"]; ok && i != "" {
+		msg += fmt.Sprintf(" [total=%v]", i)
+	}
+	if i, ok := entry.Data["prompt"]; ok && i != "" {
+		msg += fmt.Sprintf(" [prompt=%v]", i)
+	}
+	if i, ok := entry.Data["completion"]; ok && i != "" {
+		msg += fmt.Sprintf(" [completion=%v]", i)
 	}
 	return []byte(fmt.Sprintf("%s %s\n",
 		entry.Time.Format(time.TimeOnly),
@@ -64,6 +95,19 @@ func Package() Logger {
 	return New(p)
 }
 
+func NewWithFields(fields logrus.Fields) Logger {
+	return Logger{
+		log:    logrus.StandardLogger(),
+		fields: fields,
+	}
+}
+
+func NewWithID(id string) Logger {
+	return NewWithFields(logrus.Fields{
+		"id": id,
+	})
+}
+
 func New(name string) Logger {
 	var fields logrus.Fields
 	if name != "" {
@@ -71,10 +115,7 @@ func New(name string) Logger {
 			"logger": name,
 		}
 	}
-	return Logger{
-		log:    logrus.StandardLogger(),
-		fields: fields,
-	}
+	return NewWithFields(fields)
 }
 
 func SetOutput(out io.Writer) {
@@ -114,6 +155,25 @@ func (l *Logger) Fields(kv ...any) *Logger {
 		log:    l.log,
 		fields: newFields,
 	}
+}
+
+type InfoLogger interface {
+	Infof(msg string, args ...any)
+}
+
+type infoKey struct{}
+
+func WithInfo(ctx context.Context, logger InfoLogger) context.Context {
+	return context.WithValue(ctx, infoKey{}, logger)
+}
+
+func (l *Logger) InfofCtx(ctx context.Context, msg string, args ...any) {
+	il, ok := ctx.Value(infoKey{}).(InfoLogger)
+	if ok {
+		il.Infof(msg, args...)
+		return
+	}
+	l.log.WithFields(l.fields).Infof(msg, args...)
 }
 
 func (l *Logger) Infof(msg string, args ...any) {

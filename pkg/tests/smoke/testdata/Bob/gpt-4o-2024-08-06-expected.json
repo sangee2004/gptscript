@@ -1,0 +1,538 @@
+[
+    {
+        "time": "2024-10-14T18:59:07.751937-04:00",
+        "type": "runStart",
+        "usage": {}
+    },
+    {
+        "time": "2024-10-14T18:59:07.752324-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callStart",
+        "usage": {}
+    },
+    {
+        "time": "2024-10-14T18:59:07.75237-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946749",
+        "usage": {},
+        "chatRequest": {
+            "model": "",
+            "messages": null
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:08.602251-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946749",
+        "usage": {
+            "promptTokens": 145,
+            "completionTokens": 17,
+            "totalTokens": 162
+        },
+        "chatResponse": {
+            "role": "assistant",
+            "content": [
+                {
+                    "toolCall": {
+                        "index": 0,
+                        "id": "call_1nuYJNsE6SIQrXe4wyoMb8sh",
+                        "function": {
+                            "name": "bob",
+                            "arguments": "{\"question\":\"how are you doing\"}"
+                        }
+                    }
+                }
+            ],
+            "usage": {
+                "promptTokens": 145,
+                "completionTokens": 17,
+                "totalTokens": 162
+            }
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:08.602522-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "toolSubCalls": {
+            "call_1nuYJNsE6SIQrXe4wyoMb8sh": {
+                "toolID": "testdata/Bob/test.gpt:bob",
+                "input": "{\"question\":\"how are you doing\"}"
+            }
+        },
+        "type": "callSubCalls",
+        "usage": {}
+    },
+    {
+        "time": "2024-10-14T18:59:08.602683-04:00",
+        "callContext": {
+            "id": "call_1nuYJNsE6SIQrXe4wyoMb8sh",
+            "tool": {
+                "name": "bob",
+                "description": "I'm Bob, a friendly guy.",
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "arguments": {
+                    "properties": {
+                        "question": {
+                            "description": "The question to ask Bob.",
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "instructions": "When asked how I am doing, respond with the following exactly: \"Thanks for asking ${QUESTION}! I'm doing great fellow friendly AI tool!\" with ${QUESTION} replaced with the question text as given.",
+                "id": "testdata/Bob/test.gpt:bob",
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 6
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null,
+            "toolName": "bob",
+            "parentID": "1728946748"
+        },
+        "type": "callStart",
+        "usage": {},
+        "content": "{\"question\":\"how are you doing\"}"
+    },
+    {
+        "time": "2024-10-14T18:59:08.602885-04:00",
+        "callContext": {
+            "id": "call_1nuYJNsE6SIQrXe4wyoMb8sh",
+            "tool": {
+                "name": "bob",
+                "description": "I'm Bob, a friendly guy.",
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "arguments": {
+                    "properties": {
+                        "question": {
+                            "description": "The question to ask Bob.",
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "instructions": "When asked how I am doing, respond with the following exactly: \"Thanks for asking ${QUESTION}! I'm doing great fellow friendly AI tool!\" with ${QUESTION} replaced with the question text as given.",
+                "id": "testdata/Bob/test.gpt:bob",
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 6
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null,
+            "toolName": "bob",
+            "parentID": "1728946748"
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946750",
+        "usage": {},
+        "chatRequest": {
+            "model": "",
+            "messages": null
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:09.291815-04:00",
+        "callContext": {
+            "id": "call_1nuYJNsE6SIQrXe4wyoMb8sh",
+            "tool": {
+                "name": "bob",
+                "description": "I'm Bob, a friendly guy.",
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "arguments": {
+                    "properties": {
+                        "question": {
+                            "description": "The question to ask Bob.",
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "instructions": "When asked how I am doing, respond with the following exactly: \"Thanks for asking ${QUESTION}! I'm doing great fellow friendly AI tool!\" with ${QUESTION} replaced with the question text as given.",
+                "id": "testdata/Bob/test.gpt:bob",
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 6
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null,
+            "toolName": "bob",
+            "parentID": "1728946748"
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946750",
+        "usage": {
+            "promptTokens": 137,
+            "completionTokens": 16,
+            "totalTokens": 153
+        },
+        "chatResponse": {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "Thanks for asking how are you doing! I'm doing great fellow friendly AI tool!"
+                }
+            ],
+            "usage": {
+                "promptTokens": 137,
+                "completionTokens": 16,
+                "totalTokens": 153
+            }
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:09.291883-04:00",
+        "callContext": {
+            "id": "call_1nuYJNsE6SIQrXe4wyoMb8sh",
+            "tool": {
+                "name": "bob",
+                "description": "I'm Bob, a friendly guy.",
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "arguments": {
+                    "properties": {
+                        "question": {
+                            "description": "The question to ask Bob.",
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                "instructions": "When asked how I am doing, respond with the following exactly: \"Thanks for asking ${QUESTION}! I'm doing great fellow friendly AI tool!\" with ${QUESTION} replaced with the question text as given.",
+                "id": "testdata/Bob/test.gpt:bob",
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 6
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null,
+            "toolName": "bob",
+            "parentID": "1728946748"
+        },
+        "type": "callFinish",
+        "usage": {},
+        "content": "Thanks for asking how are you doing! I'm doing great fellow friendly AI tool!"
+    },
+    {
+        "time": "2024-10-14T18:59:09.291934-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "toolResults": 1,
+        "type": "callContinue",
+        "usage": {}
+    },
+    {
+        "time": "2024-10-14T18:59:09.292559-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946751",
+        "usage": {},
+        "chatRequest": {
+            "model": "",
+            "messages": null
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:10.065468-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callChat",
+        "chatCompletionId": "1728946751",
+        "usage": {
+            "promptTokens": 185,
+            "completionTokens": 17,
+            "totalTokens": 202
+        },
+        "chatResponse": {
+            "role": "assistant",
+            "content": [
+                {
+                    "text": "Thanks for asking how are you doing! I'm doing great fellow friendly AI tool!"
+                }
+            ],
+            "usage": {
+                "promptTokens": 185,
+                "completionTokens": 17,
+                "totalTokens": 202
+            }
+        }
+    },
+    {
+        "time": "2024-10-14T18:59:10.065547-04:00",
+        "callContext": {
+            "id": "1728946748",
+            "tool": {
+                "modelName": "gpt-4o-2024-08-06",
+                "internalPrompt": null,
+                "tools": [
+                    "bob"
+                ],
+                "instructions": "Ask Bob \"how are you doing\" and repeat the response text exactly as given without saying anything else.",
+                "id": "testdata/Bob/test.gpt:",
+                "toolMapping": {
+                    "bob": [
+                        {
+                            "reference": "bob",
+                            "toolID": "testdata/Bob/test.gpt:bob"
+                        }
+                    ]
+                },
+                "localTools": {
+                    "": "testdata/Bob/test.gpt:",
+                    "bob": "testdata/Bob/test.gpt:bob"
+                },
+                "source": {
+                    "location": "testdata/Bob/test.gpt",
+                    "lineNo": 1
+                },
+                "workingDir": "testdata/Bob"
+            },
+            "currentAgent": {},
+            "inputContext": null
+        },
+        "type": "callFinish",
+        "usage": {},
+        "content": "Thanks for asking how are you doing! I'm doing great fellow friendly AI tool!"
+    },
+    {
+        "time": "2024-10-14T18:59:10.065614-04:00",
+        "type": "runFinish",
+        "usage": {}
+    }
+]

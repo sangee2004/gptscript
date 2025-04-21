@@ -27,16 +27,27 @@ You don't move to the next step until you have a result.
 var DefaultPromptParameter = "defaultPromptParameter"
 
 var DefaultToolSchema = openapi3.Schema{
-	Type: "object",
+	Type: &openapi3.Types{"object"},
 	Properties: openapi3.Schemas{
 		DefaultPromptParameter: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Description: "Prompt to send to the tool or assistant. This may be instructions or question.",
-				Type:        "string",
+				Description: "Prompt to send to the tool. This may be an instruction or question.",
+				Type:        &openapi3.Types{"string"},
 			},
 		},
 	},
-	Required: []string{DefaultPromptParameter},
+}
+
+var DefaultChatSchema = openapi3.Schema{
+	Type: &openapi3.Types{"object"},
+	Properties: openapi3.Schemas{
+		DefaultPromptParameter: &openapi3.SchemaRef{
+			Value: &openapi3.Schema{
+				Description: "Prompt to send to the assistant. This may be an instruction or question.",
+				Type:        &openapi3.Types{"string"},
+			},
+		},
+	},
 }
 
 func init() {

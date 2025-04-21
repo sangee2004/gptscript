@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
-	"github.com/mholt/archiver/v4"
+	"github.com/mholt/archives"
 )
 
 func Extract(ctx context.Context, downloadURL, digest, targetDir string) error {
@@ -60,17 +62,29 @@ func Extract(ctx context.Context, downloadURL, digest, targetDir string) error {
 		return err
 	}
 
-	format, input, err := archiver.Identify(filepath.Base(parsedURL.Path), tmpFile)
+	bin := path.Base(parsedURL.Path)
+	if strings.HasSuffix(bin, ".exe") {
+		dst, err := os.Create(filepath.Join(targetDir, bin))
+		if err != nil {
+			return err
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(dst, tmpFile)
+		return err
+	}
+
+	format, input, err := archives.Identify(ctx, filepath.Base(parsedURL.Path), tmpFile)
 	if err != nil {
 		return err
 	}
 
-	ex, ok := format.(archiver.Extractor)
+	ex, ok := format.(archives.Extractor)
 	if !ok {
 		return fmt.Errorf("failed to detect proper archive for extraction from %s got: %v", downloadURL, ex)
 	}
 
-	err = ex.Extract(ctx, input, nil, func(_ context.Context, f archiver.File) error {
+	err = ex.Extract(ctx, input, func(_ context.Context, f archives.FileInfo) error {
 		target := filepath.Join(targetDir, f.NameInArchive)
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err

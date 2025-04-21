@@ -1,35 +1,30 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": null,
-  "Tools": [
+  "model": "gpt-4o",
+  "tools": [
     {
       "function": {
-        "toolID": "testdata/TestCwd/subtool/test.gpt:1",
+        "toolID": "testdata/TestCwd/subtool/test.gpt:",
         "name": "test",
         "parameters": null
       }
     },
     {
       "function": {
-        "toolID": "testdata/TestCwd/test.gpt:6",
+        "toolID": "testdata/TestCwd/test.gpt:local",
         "name": "local",
         "parameters": null
       }
     }
   ],
-  "Messages": [
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "noop"
         }
-      ]
+      ],
+      "usage": {}
     }
-  ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  ]
 }`

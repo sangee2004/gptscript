@@ -1,10 +1,14 @@
 package hash
 
-import "hash/fnv"
+import (
+	"encoding/json"
+	"hash/fnv"
+)
 
 func Seed(input any) int {
-	s := Encode(input)
 	h := fnv.New32a()
-	_, _ = h.Write([]byte(s))
+	if err := json.NewEncoder(h).Encode(input); err != nil {
+		panic(err)
+	}
 	return int(h.Sum32())
 }

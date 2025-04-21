@@ -6,20 +6,22 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
-type noopFactory struct {
-}
+type noopFactory struct{}
 
 func (n noopFactory) Start(context.Context, *types.Program, []string, string) (Monitor, error) {
 	return noopMonitor{}, nil
 }
 
-type noopMonitor struct {
+func (n noopFactory) Pause() func() {
+	return func() {}
 }
+
+type noopMonitor struct{}
 
 func (n noopMonitor) Event(Event) {
 }
 
-func (n noopMonitor) Stop(string, error) {}
+func (n noopMonitor) Stop(context.Context, string, error) {}
 
 func (n noopMonitor) Pause() func() {
 	return func() {}

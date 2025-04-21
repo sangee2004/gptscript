@@ -29,11 +29,15 @@ func Checkout(ctx context.Context, base, repo, commit, toDir string) error {
 		return err
 	}
 
-	if err := Fetch(ctx, base, repo, commit); err != nil {
+	if usePureGo() {
+		return checkoutPureGo(ctx, base, repo, commit, toDir)
+	}
+
+	if err := fetch(ctx, base, repo, commit); err != nil {
 		return err
 	}
 
-	log.Infof("Checking out %s to %s", commit, toDir)
+	log.InfofCtx(ctx, "Checking out %s to %s", commit, toDir)
 	return gitWorktreeAdd(ctx, gitDir(base, repo), toDir, commit)
 }
 
@@ -41,16 +45,16 @@ func gitDir(base, repo string) string {
 	return filepath.Join(base, "repos", hash.Digest(repo))
 }
 
-func Fetch(ctx context.Context, base, repo, commit string) error {
+func fetch(ctx context.Context, base, repo, commit string) error {
 	gitDir := gitDir(base, repo)
 	if found, err := exists(gitDir); err != nil {
 		return err
 	} else if !found {
-		log.Infof("Cloning %s", repo)
+		log.InfofCtx(ctx, "Cloning %s", repo)
 		if err := cloneBare(ctx, repo, gitDir); err != nil {
 			return err
 		}
 	}
-	log.Infof("Fetching %s at %s", commit, repo)
+	log.InfofCtx(ctx, "Fetching %s at %s", commit, repo)
 	return fetchCommit(ctx, gitDir, commit)
 }
