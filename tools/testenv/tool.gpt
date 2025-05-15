@@ -1,3 +1,0 @@
-Name: mytestpython
-Description: Print my env variables
-#!/usr/bin/env python3 ${GPTSCRIPT_TOOL_DIR}/mytest.py
