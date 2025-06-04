@@ -1,0 +1,16 @@
+publish:
+  entrypoint: demo-agent
+
+agents:
+  demo-agent:
+    model: gpt-4o
+    instructions: You are a helpful agent
+    tools: ["Demo"]
+
+mcpServers:
+    Demo:
+      command: "uv"
+      args: [
+        "run",
+        "testcontext.py"
+       ]
