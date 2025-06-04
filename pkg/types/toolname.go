@@ -3,6 +3,7 @@ package types
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/gptscript/pkg/system"
@@ -14,8 +15,17 @@ var (
 )
 
 func ToolNormalizer(tool string) string {
-	parts := strings.Split(tool, "/")
+	_, subTool := SplitToolRef(tool)
+	lastTool := tool
+	if subTool != "" {
+		lastTool = subTool
+	}
+
+	parts := strings.Split(lastTool, "/")
 	tool = parts[len(parts)-1]
+	if parts[len(parts)-1] == "tool.gpt" && len(parts) > 1 && len(parts[len(parts)-2]) > 2 {
+		tool = parts[len(parts)-2]
+	}
 	if strings.HasSuffix(tool, system.Suffix) {
 		tool = strings.TrimSuffix(tool, filepath.Ext(tool))
 	}
@@ -31,16 +41,44 @@ func ToolNormalizer(tool string) string {
 
 	tool = invalidChars.ReplaceAllString(tool, "_")
 
-	var result []string
-	for i, part := range strings.Split(tool, "_") {
+	var (
+		result   []string
+		appended bool
+	)
+	for _, part := range strings.Split(tool, "_") {
 		lower := strings.ToLower(part)
-		if i != 0 && len(lower) > 0 {
+		if appended && len(lower) > 0 {
 			lower = strings.ToTitle(lower[0:1]) + lower[1:]
 		}
-		result = append(result, lower)
+		if lower != "" {
+			result = append(result, lower)
+			appended = true
+		}
 	}
 
-	return strings.Join(result, "")
+	final := strings.Join(result, "")
+	if final == "" {
+		return "tool"
+	}
+	return final
+}
+
+func SplitToolRef(targetToolName string) (toolName, subTool string) {
+	var (
+		fields = strings.Fields(targetToolName)
+		idx    = slices.Index(fields, "from")
+	)
+
+	defer func() {
+		toolName, _ = SplitArg(toolName)
+	}()
+
+	if idx == -1 {
+		return strings.TrimSpace(targetToolName), ""
+	}
+
+	return strings.Join(fields[idx+1:], " "),
+		strings.Join(fields[:idx], " ")
 }
 
 func PickToolName(toolName string, existing map[string]struct{}) string {
@@ -48,12 +86,12 @@ func PickToolName(toolName string, existing map[string]struct{}) string {
 		toolName = "external"
 	}
 
+	testName := ToolNormalizer(toolName)
 	for {
-		testName := ToolNormalizer(toolName)
 		if _, ok := existing[testName]; !ok {
 			existing[testName] = struct{}{}
 			return testName
 		}
-		toolName += "0"
+		testName += "0"
 	}
 }

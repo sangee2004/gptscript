@@ -13,26 +13,27 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           cache: false
-          go-version: "1.22"
+          go-version: "1.23"
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: v1.23.0
+          version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
   winget-release:
     needs: release-tag
+    if: "! contains(github.ref_name, '-rc')"
     runs-on: windows-latest
     steps:
       - name: Install winget-create
@@ -42,3 +43,36 @@ jobs:
         run: |
             $url = "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/gptscript-${{ github.ref_name }}-windows-amd64.zip"
             ./wingetcreate.exe update --submit --token "${{ secrets.WINGET_GH_TOKEN }}" --urls $url --version "${{ github.ref_name }}" gptscript-ai.gptscript
+  node-release:
+    needs: release-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_PAT }}
+          repository: gptscript-ai/node-gptscript
+          event-type: release
+          client-payload: '{"tag": "${{ github.ref_name }}"}'
+  python-release:
+    needs: release-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_PAT }}
+          repository: gptscript-ai/py-gptscript
+          event-type: release
+          client-payload: '{"tag": "${{ github.ref_name }}"}'
+  go-release:
+    needs: release-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_PAT }}
+          repository: gptscript-ai/go-gptscript
+          event-type: release
+          client-payload: '{"tag": "${{ github.ref_name }}"}'

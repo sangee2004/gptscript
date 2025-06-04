@@ -1,19 +1,27 @@
 name: test
+
 on:
   push:
     branches:
       - main
     paths-ignore:
       - docs/**
+      - tools/**
+      - README.md
   pull_request:
     branches:
       - main
     paths-ignore:
       - docs/**
+      - tools/**
+      - README.md
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,10 +29,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           cache: false
-          go-version: "1.21"
-      - name: Build UI
-        run: make build-ui
+          go-version: "1.23"
       - name: Validate
+        if: matrix.os == 'ubuntu-22.04'
         run: make validate
       - name: Build
         run: make build

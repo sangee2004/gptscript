@@ -1,0 +1,46 @@
+`{
+  "model": "gpt-4o",
+  "tools": [
+    {
+      "function": {
+        "toolID": "testdata/TestAsterick/other.gpt:afoo",
+        "name": "afoo",
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the tool. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    },
+    {
+      "function": {
+        "toolID": "testdata/TestAsterick/other.gpt:a",
+        "name": "a",
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the tool. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "text": "Ask Bob how he is doing and let me know exactly what he said."
+        }
+      ],
+      "usage": {}
+    }
+  ]
+}`

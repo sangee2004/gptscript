@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/adrg/xdg"
+	"github.com/gptscript-ai/gptscript/pkg/credentials"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
+	"github.com/gptscript-ai/gptscript/pkg/repos/runtimes"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/hexops/autogold/v2"
@@ -28,7 +31,11 @@ type Result struct {
 	Err     error
 }
 
-func (c *Client) Call(_ context.Context, messageRequest types.CompletionRequest, _ chan<- types.CompletionStatus) (*types.CompletionMessage, error) {
+func (c *Client) ProxyInfo([]string) (string, string, error) {
+	return "test-auth", "test-url", nil
+}
+
+func (c *Client) Call(_ context.Context, messageRequest types.CompletionRequest, _ []string, _ chan<- types.CompletionStatus) (resp *types.CompletionMessage, respErr error) {
 	msgData, err := json.MarshalIndent(messageRequest, "", "  ")
 	require.NoError(c.t, err)
 
@@ -39,6 +46,15 @@ func (c *Client) Call(_ context.Context, messageRequest types.CompletionRequest,
 		c.t.Run(fmt.Sprintf("call%d", c.id), func(t *testing.T) {
 			autogold.ExpectFile(t, string(msgData))
 		})
+		defer func() {
+			if respErr == nil {
+				c.t.Run(fmt.Sprintf("call%d-resp", c.id), func(t *testing.T) {
+					msgData, err := json.MarshalIndent(resp, "", "  ")
+					require.NoError(c.t, err)
+					autogold.ExpectFile(t, string(msgData))
+				})
+			}
+		}()
 	}
 	if len(c.result) == 0 {
 		return &types.CompletionMessage{
@@ -94,7 +110,20 @@ func (c *Client) Call(_ context.Context, messageRequest types.CompletionRequest,
 	}
 
 	if result.Func.Name != "" {
-		c.t.Fatalf("failed to find tool %s", result.Func.Name)
+		return &types.CompletionMessage{
+			Role: types.CompletionMessageRoleTypeAssistant,
+			Content: []types.ContentPart{
+				{
+					ToolCall: &types.CompletionToolCall{
+						ID: fmt.Sprintf("call_%d", c.id),
+						Function: types.CompletionFunctionCall{
+							Name:      result.Func.Name,
+							Arguments: result.Func.Arguments,
+						},
+					},
+				},
+			},
+		}, nil
 	}
 
 	return &types.CompletionMessage{
@@ -106,7 +135,8 @@ func (c *Client) Call(_ context.Context, messageRequest types.CompletionRequest,
 type Runner struct {
 	*runner.Runner
 
-	Client *Client
+	Client       *Client
+	StepAsserted int
 }
 
 func (r *Runner) RunDefault() string {
@@ -129,12 +159,27 @@ func (r *Runner) Run(script, input string) (string, error) {
 		return "", err
 	}
 
-	return r.Runner.Run(context.Background(), prg, os.Environ(), input)
+	return r.Runner.Run(context.Background(), prg, os.Environ(), input, runner.RunOptions{})
 }
 
 func (r *Runner) AssertResponded(t *testing.T) {
 	t.Helper()
 	require.Len(t, r.Client.result, 0)
+}
+
+func toJSONString(t *testing.T, v interface{}) string {
+	t.Helper()
+	x, err := json.MarshalIndent(v, "", "  ")
+	require.NoError(t, err)
+	return string(x)
+}
+
+func (r *Runner) AssertStep(t *testing.T, resp runner.ChatResponse, err error) {
+	t.Helper()
+	r.StepAsserted++
+	require.NoError(t, err)
+	r.AssertResponded(t)
+	autogold.ExpectFile(t, toJSONString(t, resp), autogold.Name(t.Name()+fmt.Sprintf("/step%d", r.StepAsserted)))
 }
 
 func (r *Runner) RespondWith(result ...Result) {
@@ -148,8 +193,14 @@ func NewRunner(t *testing.T) *Runner {
 		t: t,
 	}
 
-	run, err := runner.New(c, "default", runner.Options{
-		Sequential: true,
+	cacheDir, err := xdg.CacheFile("gptscript-test-cache/runtime")
+	require.NoError(t, err)
+
+	rm := runtimes.Default(cacheDir, "")
+
+	run, err := runner.New(c, credentials.NoopStore{}, runner.Options{
+		Sequential:     true,
+		RuntimeManager: rm,
 	})
 	require.NoError(t, err)
 

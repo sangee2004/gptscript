@@ -1,0 +1,25 @@
+input filter: taunt
+context: exporter
+chat: true
+
+Tool body
+
+---
+name: taunt
+args: foo: this is useless
+args: input: this is used
+#!/bin/bash
+
+echo "No, ${INPUT}!"
+
+---
+name: exporter
+share input filters: taunt2
+
+---
+name: taunt2
+args: foo: this is useless
+args: input: this is used
+
+#!/bin/bash
+echo "${INPUT} ha ha ha"

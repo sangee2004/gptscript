@@ -1,20 +1,14 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": null,
-  "Tools": null,
-  "Messages": [
+  "model": "gpt-4o",
+  "messages": [
     {
       "role": "system",
       "content": [
         {
-          "text": "this is from context\n\nThis is from tool"
+          "text": "this is from context\nThis is from tool"
         }
-      ]
+      ],
+      "usage": {}
     }
-  ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  ]
 }`

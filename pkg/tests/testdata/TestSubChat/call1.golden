@@ -1,23 +1,31 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": null,
-  "Tools": [
+  "model": "gpt-4o",
+  "tools": [
     {
       "function": {
-        "toolID": "testdata/TestSubChat/test.gpt:6",
+        "toolID": "testdata/TestSubChat/test.gpt:chatbot",
         "name": "chatbot",
-        "parameters": null
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the assistant. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
       }
     }
   ],
-  "Messages": [
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "Call chatbot"
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "user",
@@ -25,12 +33,8 @@
         {
           "text": "Hello"
         }
-      ]
+      ],
+      "usage": {}
     }
-  ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  ]
 }`

@@ -10,6 +10,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/input"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
+	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -28,16 +29,18 @@ type Eval struct {
 
 func (e *Eval) Run(cmd *cobra.Command, args []string) error {
 	tool := types.Tool{
-		Parameters: types.Parameters{
-			Description:    "inline script",
-			Tools:          e.Tools,
-			MaxTokens:      e.MaxTokens,
-			ModelName:      e.Model,
-			JSONResponse:   e.JSON,
-			InternalPrompt: e.InternalPrompt,
-			Chat:           e.Chat,
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Description:    "inline script",
+				Tools:          e.Tools,
+				MaxTokens:      e.MaxTokens,
+				ModelName:      e.Model,
+				JSONResponse:   e.JSON,
+				InternalPrompt: e.InternalPrompt,
+				Chat:           e.Chat,
+			},
+			Instructions: strings.Join(args, " "),
 		},
-		Instructions: strings.Join(args, " "),
 	}
 
 	if e.Temperature != "" {
@@ -49,17 +52,19 @@ func (e *Eval) Run(cmd *cobra.Command, args []string) error {
 		tool.Temperature = &temp32
 	}
 
-	prg, err := loader.ProgramFromSource(cmd.Context(), tool.String(), "")
-	if err != nil {
-		return err
-	}
-
 	opts, err := e.gptscript.NewGPTScriptOpts()
 	if err != nil {
 		return err
 	}
 
-	runner, err := gptscript.New(&opts)
+	g, err := gptscript.New(cmd.Context(), opts)
+	if err != nil {
+		return err
+	}
+
+	prg, err := loader.ProgramFromSource(cmd.Context(), tool.String(), "", loader.Options{
+		Cache: g.Cache,
+	})
 	if err != nil {
 		return err
 	}
@@ -70,12 +75,14 @@ func (e *Eval) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if e.Chat {
-		return chat.Start(e.gptscript.NewRunContext(cmd), nil, runner, func() (types.Program, error) {
-			return prg, nil
-		}, os.Environ(), toolInput)
+		return chat.Start(cmd.Context(), nil, g, func() (types.Program, error) {
+			return loader.ProgramFromSource(cmd.Context(), tool.String(), "", loader.Options{
+				Cache: g.Cache,
+			})
+		}, os.Environ(), toolInput, "")
 	}
 
-	toolOutput, err := runner.Run(e.gptscript.NewRunContext(cmd), prg, os.Environ(), toolInput)
+	toolOutput, err := g.Run(cmd.Context(), prg, opts.Env, toolInput, runner.RunOptions{})
 	if err != nil {
 		return err
 	}

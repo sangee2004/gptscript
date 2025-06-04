@@ -11,42 +11,75 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/builtin"
-	"github.com/gptscript-ai/gptscript/pkg/config"
 	context2 "github.com/gptscript-ai/gptscript/pkg/context"
 	"github.com/gptscript-ai/gptscript/pkg/credentials"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"golang.org/x/exp/maps"
 )
 
 type MonitorFactory interface {
 	Start(ctx context.Context, prg *types.Program, env []string, input string) (Monitor, error)
+	Pause() func()
 }
 
 type Monitor interface {
 	Event(event Event)
 	Pause() func()
-	Stop(output string, err error)
+	Stop(ctx context.Context, output string, err error)
 }
 
 type Options struct {
-	MonitorFactory     MonitorFactory        `usage:"-"`
-	RuntimeManager     engine.RuntimeManager `usage:"-"`
-	StartPort          int64                 `usage:"-"`
-	EndPort            int64                 `usage:"-"`
-	CredentialOverride string                `usage:"-"`
-	Sequential         bool                  `usage:"-"`
+	MonitorFactory      MonitorFactory        `usage:"-"`
+	RuntimeManager      engine.RuntimeManager `usage:"-"`
+	StartPort           int64                 `usage:"-"`
+	EndPort             int64                 `usage:"-"`
+	CredentialOverrides []string              `usage:"-"`
+	Sequential          bool                  `usage:"-"`
+	Authorizer          AuthorizerFunc        `usage:"-"`
+	MCPRunner           engine.MCPRunner      `usage:"-"`
 }
 
-func complete(opts ...Options) (result Options) {
+type RunOptions struct {
+	UserCancel <-chan struct{}
+}
+
+type AuthorizerResponse struct {
+	Accept  bool
+	Message string
+}
+
+type AuthorizerFunc func(ctx engine.Context, input string) (AuthorizerResponse, error)
+
+func DefaultAuthorizer(engine.Context, string) (AuthorizerResponse, error) {
+	return AuthorizerResponse{
+		Accept: true,
+	}, nil
+}
+
+func Complete(opts ...Options) (result Options) {
 	for _, opt := range opts {
 		result.MonitorFactory = types.FirstSet(opt.MonitorFactory, result.MonitorFactory)
 		result.RuntimeManager = types.FirstSet(opt.RuntimeManager, result.RuntimeManager)
 		result.StartPort = types.FirstSet(opt.StartPort, result.StartPort)
 		result.EndPort = types.FirstSet(opt.EndPort, result.EndPort)
-		result.CredentialOverride = types.FirstSet(opt.CredentialOverride, result.CredentialOverride)
 		result.Sequential = types.FirstSet(opt.Sequential, result.Sequential)
+		if opt.Authorizer != nil {
+			result.Authorizer = opt.Authorizer
+		}
+		if opt.CredentialOverrides != nil {
+			result.CredentialOverrides = append(result.CredentialOverrides, opt.CredentialOverrides...)
+		}
+		if opt.MCPRunner != nil {
+			result.MCPRunner = opt.MCPRunner
+		}
 	}
+	return
+}
+
+func complete(opts ...Options) Options {
+	result := Complete(opts...)
 	if result.MonitorFactory == nil {
 		result.MonitorFactory = noopFactory{}
 	}
@@ -56,57 +89,50 @@ func complete(opts ...Options) (result Options) {
 	if result.StartPort == 0 {
 		result.StartPort = result.EndPort
 	}
-	return
+	if result.Authorizer == nil {
+		result.Authorizer = DefaultAuthorizer
+	}
+	if result.MCPRunner == nil {
+		result.MCPRunner = mcp.DefaultRunner
+	}
+	return result
 }
 
 type Runner struct {
 	c              engine.Model
+	auth           AuthorizerFunc
 	factory        MonitorFactory
 	runtimeManager engine.RuntimeManager
-	ports          engine.Ports
-	credCtx        string
 	credMutex      sync.Mutex
-	credOverrides  string
+	credOverrides  []string
+	credStore      credentials.CredentialStore
 	sequential     bool
+	mcpRunner      engine.MCPRunner
 }
 
-func New(client engine.Model, credCtx string, opts ...Options) (*Runner, error) {
+func New(client engine.Model, credStore credentials.CredentialStore, opts ...Options) (*Runner, error) {
 	opt := complete(opts...)
 
 	runner := &Runner{
 		c:              client,
 		factory:        opt.MonitorFactory,
 		runtimeManager: opt.RuntimeManager,
-		credCtx:        credCtx,
 		credMutex:      sync.Mutex{},
-		credOverrides:  opt.CredentialOverride,
+		credOverrides:  opt.CredentialOverrides,
+		credStore:      credStore,
 		sequential:     opt.Sequential,
+		auth:           opt.Authorizer,
+		mcpRunner:      opt.MCPRunner,
 	}
 
 	if opt.StartPort != 0 {
 		if opt.EndPort < opt.StartPort {
 			return nil, fmt.Errorf("invalid port range: %d-%d", opt.StartPort, opt.EndPort)
 		}
-		runner.ports.SetPorts(opt.StartPort, opt.EndPort)
+		engine.SetPorts(opt.StartPort, opt.EndPort)
 	}
 
 	return runner, nil
-}
-
-func (r *Runner) Close() {
-	r.ports.CloseDaemons()
-}
-
-type ErrContinuation struct {
-	State *State
-}
-
-func (e *ErrContinuation) Prompt() string {
-	return *e.State.Continuation.Result
-}
-
-func (e *ErrContinuation) Error() string {
-	return fmt.Sprintf("chat continuation required: %s", e.Prompt())
 }
 
 type ChatResponse struct {
@@ -118,15 +144,25 @@ type ChatResponse struct {
 
 type ChatState interface{}
 
-func (r *Runner) Chat(ctx context.Context, prevState ChatState, prg types.Program, env []string, input string) (resp ChatResponse, err error) {
+func (r *Runner) Chat(ctx context.Context, prevState ChatState, prg types.Program, env []string, input string, opts RunOptions) (resp ChatResponse, err error) {
 	var state *State
+
+	defer func() {
+		if finish := (*engine.ErrChatFinish)(nil); errors.As(err, &finish) {
+			resp = ChatResponse{
+				Done:    true,
+				Content: err.Error(),
+			}
+			err = nil
+		}
+	}()
 
 	if prevState != nil {
 		switch v := prevState.(type) {
 		case *State:
 			state = v
 		case string:
-			if v != "null" {
+			if v != "null" && v != "" {
 				state = &State{}
 				if err := json.Unmarshal([]byte(v), state); err != nil {
 					return resp, fmt.Errorf("failed to unmarshal chat state: %w", err)
@@ -142,20 +178,21 @@ func (r *Runner) Chat(ctx context.Context, prevState ChatState, prg types.Progra
 		return resp, err
 	}
 	defer func() {
-		monitor.Stop(resp.Content, err)
+		monitor.Stop(ctx, resp.Content, err)
 	}()
 
-	callCtx := engine.NewContext(ctx, &prg)
+	callCtx, err := engine.NewContext(ctx, &prg, input, opts.UserCancel)
+	if err != nil {
+		return resp, err
+	}
+
 	if state == nil {
-		startResult, err := r.start(callCtx, monitor, env, input)
+		state, err = r.start(callCtx, state, monitor, env, input)
 		if err != nil {
 			return resp, err
 		}
-		state = &State{
-			Continuation: startResult,
-		}
 	} else {
-		state.ResumeInput = &input
+		state = state.WithResumeInput(&input)
 	}
 
 	state, err = r.resume(callCtx, monitor, env, state)
@@ -187,26 +224,12 @@ func (r *Runner) Chat(ctx context.Context, prevState ChatState, prg types.Progra
 	}, nil
 }
 
-func (r *Runner) Run(ctx context.Context, prg types.Program, env []string, input string) (output string, err error) {
-	monitor, err := r.factory.Start(ctx, &prg, env, input)
+func (r *Runner) Run(ctx context.Context, prg types.Program, env []string, input string, opts RunOptions) (output string, err error) {
+	resp, err := r.Chat(ctx, nil, prg, env, input, opts)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		monitor.Stop(output, err)
-	}()
-
-	callCtx := engine.NewContext(ctx, &prg)
-	state, err := r.call(callCtx, monitor, env, input)
-	if err != nil {
-		return "", nil
-	}
-	if state.Continuation != nil {
-		return "", &ErrContinuation{
-			State: state,
-		}
-	}
-	return *state.Result, nil
+	return resp.Content, nil
 }
 
 type Event struct {
@@ -218,6 +241,7 @@ type Event struct {
 	ChatCompletionID   string                 `json:"chatCompletionId,omitempty"`
 	ChatRequest        any                    `json:"chatRequest,omitempty"`
 	ChatResponse       any                    `json:"chatResponse,omitempty"`
+	Usage              types.Usage            `json:"usage,omitempty"`
 	ChatResponseCached bool                   `json:"chatResponseCached,omitempty"`
 	Content            string                 `json:"content,omitempty"`
 }
@@ -225,71 +249,61 @@ type Event struct {
 type EventType string
 
 var (
-	EventTypeCallStart    = EventType("callStart")
-	EventTypeCallContinue = EventType("callContinue")
-	EventTypeCallSubCalls = EventType("callSubCalls")
-	EventTypeCallProgress = EventType("callProgress")
-	EventTypeChat         = EventType("callChat")
-	EventTypeCallFinish   = EventType("callFinish")
+	EventTypeRunStart     EventType = "runStart"
+	EventTypeCallStart    EventType = "callStart"
+	EventTypeCallContinue EventType = "callContinue"
+	EventTypeCallSubCalls EventType = "callSubCalls"
+	EventTypeCallProgress EventType = "callProgress"
+	EventTypeChat         EventType = "callChat"
+	EventTypeCallFinish   EventType = "callFinish"
+	EventTypeRunFinish    EventType = "runFinish"
 )
 
-func (r *Runner) getContext(callCtx engine.Context, monitor Monitor, env []string) (result []engine.InputContext, _ error) {
-	toolIDs, err := callCtx.Program.GetContextToolIDs(callCtx.Tool.ID)
+func (r *Runner) getContext(callCtx engine.Context, state *State, monitor Monitor, env []string, input string) (result []engine.InputContext, _ error) {
+	toolRefs, err := callCtx.Tool.GetToolsByType(callCtx.Program, types.ToolTypeContext)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, toolID := range toolIDs {
-		content, err := r.subCall(callCtx.Ctx, callCtx, monitor, env, toolID, "", "", engine.ContextToolCategory)
+	for i, toolRef := range toolRefs {
+		if state != nil && i < len(state.InputContexts) {
+			result = append(result, state.InputContexts[i])
+			continue
+		}
+
+		contextInput, err := types.GetToolRefInput(callCtx.Program, toolRef, input)
 		if err != nil {
 			return nil, err
 		}
-		if content.Result == nil {
-			return nil, fmt.Errorf("context tool can not result in a chat continuation")
+
+		var content *State
+		content, err = r.subCall(callCtx.Ctx, callCtx, monitor, env, toolRef.ToolID, contextInput, "", engine.ContextToolCategory)
+		if err != nil {
+			return nil, err
+		}
+		if content.Continuation != nil {
+			return nil, fmt.Errorf("invalid state: context tool [%s] can not result in a continuation", toolRef.ToolID)
 		}
 		result = append(result, engine.InputContext{
-			ToolID:  toolID,
+			ToolID:  toolRef.ToolID,
 			Content: *content.Result,
 		})
 	}
+
 	return result, nil
 }
 
 func (r *Runner) call(callCtx engine.Context, monitor Monitor, env []string, input string) (*State, error) {
-	result, err := r.start(callCtx, monitor, env, input)
+	result, err := r.start(callCtx, nil, monitor, env, input)
 	if err != nil {
 		return nil, err
 	}
-	return r.resume(callCtx, monitor, env, &State{
-		Continuation: result,
-	})
+	return r.resume(callCtx, monitor, env, result)
 }
 
-func (r *Runner) start(callCtx engine.Context, monitor Monitor, env []string, input string) (*engine.Return, error) {
+func (r *Runner) start(callCtx engine.Context, state *State, monitor Monitor, env []string, input string) (*State, error) {
 	progress, progressClose := streamProgress(&callCtx, monitor)
 	defer progressClose()
-
-	if len(callCtx.Tool.Credentials) > 0 {
-		var err error
-		env, err = r.handleCredentials(callCtx, monitor, env)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var err error
-	callCtx.InputContext, err = r.getContext(callCtx, monitor, env)
-	if err != nil {
-		return nil, err
-	}
-
-	e := engine.Engine{
-		Model:          r.c,
-		RuntimeManager: r.runtimeManager,
-		Progress:       progress,
-		Env:            env,
-		Ports:          &r.ports,
-	}
 
 	monitor.Event(Event{
 		Time:        time.Now(),
@@ -298,9 +312,68 @@ func (r *Runner) start(callCtx engine.Context, monitor Monitor, env []string, in
 		Content:     input,
 	})
 
+	input, err := r.handleInput(callCtx, monitor, env, input)
+	if err != nil {
+		return nil, err
+	}
+
+	credTools, err := callCtx.Tool.GetToolsByType(callCtx.Program, types.ToolTypeCredential)
+	if err != nil {
+		return nil, err
+	}
+	if len(credTools) > 0 {
+		var err error
+		env, err = r.handleCredentials(callCtx, monitor, env, credTools)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	callCtx.InputContext, err = r.getContext(callCtx, state, monitor, env, input)
+	if err != nil {
+		return nil, err
+	}
+
+	e := engine.Engine{
+		Model:          r.c,
+		MCPRunner:      r.mcpRunner,
+		RuntimeManager: runtimeWithLogger(callCtx, monitor, r.runtimeManager),
+		Progress:       progress,
+		Env:            env,
+	}
+
 	callCtx.Ctx = context2.AddPauseFuncToCtx(callCtx.Ctx, monitor.Pause)
 
-	return e.Start(callCtx, input)
+	_, safe := builtin.SafeTools[callCtx.Tool.ID]
+	if callCtx.Tool.IsCommand() && !safe {
+		authResp, err := r.auth(callCtx, input)
+		if err != nil {
+			return nil, err
+		}
+
+		if !authResp.Accept {
+			msg := authResp.Message
+			if msg == "" {
+				msg = "Tool call request has been denied"
+			}
+			return &State{
+				StartInput: &input,
+				Continuation: &engine.Return{
+					Result: &msg,
+				},
+			}, nil
+		}
+	}
+
+	ret, err := e.Start(callCtx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &State{
+		StartInput:   &input,
+		Continuation: ret,
+	}, nil
 }
 
 type State struct {
@@ -308,18 +381,22 @@ type State struct {
 	ContinuationToolID string         `json:"continuationToolID,omitempty"`
 	Result             *string        `json:"result,omitempty"`
 
+	StartInput *string `json:"startInput,omitempty"`
+
 	ResumeInput *string         `json:"resumeInput,omitempty"`
 	SubCalls    []SubCallResult `json:"subCalls,omitempty"`
 	SubCallID   string          `json:"subCallID,omitempty"`
+
+	InputContexts []engine.InputContext `json:"inputContexts,omitempty"`
 }
 
-func (s State) WithInput(input *string) *State {
+func (s State) WithResumeInput(input *string) *State {
 	s.ResumeInput = input
 	return &s
 }
 
 func (s State) ContinuationContentToolID() (string, error) {
-	if s.Continuation.Result != nil {
+	if s.Continuation != nil && s.Continuation.Result != nil {
 		return s.ContinuationToolID, nil
 	}
 
@@ -332,7 +409,7 @@ func (s State) ContinuationContentToolID() (string, error) {
 }
 
 func (s State) ContinuationContent() (string, error) {
-	if s.Continuation.Result != nil {
+	if s.Continuation != nil && s.Continuation.Result != nil {
 		return *s.Continuation.Result, nil
 	}
 
@@ -344,55 +421,66 @@ func (s State) ContinuationContent() (string, error) {
 	return "", fmt.Errorf("illegal state: no result message found in chat response")
 }
 
-type Needed struct {
-	Content string `json:"content,omitempty"`
-	Input   string `json:"input,omitempty"`
-}
+func (r *Runner) resume(callCtx engine.Context, monitor Monitor, env []string, state *State) (retState *State, retErr error) {
+	handleOutput := true
 
-func (r *Runner) resume(callCtx engine.Context, monitor Monitor, env []string, state *State) (*State, error) {
+	defer func() {
+		if handleOutput {
+			retState, retErr = r.handleOutput(callCtx, monitor, env, state, retState, retErr)
+		}
+	}()
+
+	if state.Continuation == nil {
+		return nil, errors.New("invalid state, resume should have Continuation data")
+	}
+
 	progress, progressClose := streamProgress(&callCtx, monitor)
 	defer progressClose()
 
-	if len(callCtx.Tool.Credentials) > 0 {
+	credTools, err := callCtx.Tool.GetToolsByType(callCtx.Program, types.ToolTypeCredential)
+	if err != nil {
+		return nil, err
+	}
+	if len(credTools) > 0 {
 		var err error
-		env, err = r.handleCredentials(callCtx, monitor, env)
+		env, err = r.handleCredentials(callCtx, monitor, env, credTools)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var err error
-	callCtx.InputContext, err = r.getContext(callCtx, monitor, env)
-	if err != nil {
-		return nil, err
-	}
-
-	e := engine.Engine{
-		Model:          r.c,
-		RuntimeManager: r.runtimeManager,
-		Progress:       progress,
-		Env:            env,
-		Ports:          &r.ports,
-	}
-
 	for {
+		callCtx.CurrentReturn = state.Continuation
+
 		if state.Continuation.Result != nil && len(state.Continuation.Calls) == 0 && state.SubCallID == "" && state.ResumeInput == nil {
 			progressClose()
-			monitor.Event(Event{
-				Time:        time.Now(),
-				CallContext: callCtx.GetCallContext(),
-				Type:        EventTypeCallFinish,
-				Content:     *state.Continuation.Result,
-			})
 			if callCtx.Tool.Chat {
-				return &State{
+				retState = &State{
 					Continuation:       state.Continuation,
 					ContinuationToolID: callCtx.Tool.ID,
-				}, nil
+				}
+			} else {
+				retState = &State{
+					Result: state.Continuation.Result,
+				}
 			}
-			return &State{
-				Result: state.Continuation.Result,
-			}, nil
+			handleOutput = false
+			retState, retErr = r.handleOutput(callCtx, monitor, env, state, retState, nil)
+			if retErr == nil {
+				var content string
+				if retState.Continuation != nil && retState.Continuation.Result != nil {
+					content = *retState.Continuation.Result
+				} else if retState.Result != nil {
+					content = *retState.Result
+				}
+				monitor.Event(Event{
+					Time:        time.Now(),
+					CallContext: callCtx.GetCallContext(),
+					Type:        EventTypeCallFinish,
+					Content:     getEventContent(content, callCtx),
+				})
+			}
+			return retState, retErr
 		}
 
 		monitor.Event(Event{
@@ -407,8 +495,8 @@ func (r *Runner) resume(callCtx engine.Context, monitor Monitor, env []string, s
 			err         error
 		)
 
-		state, callResults, err = r.subCalls(callCtx, monitor, env, state)
-		if errMessage := (*builtin.ErrChatFinish)(nil); errors.As(err, &errMessage) && callCtx.Tool.Chat {
+		state, callResults, err = r.subCalls(callCtx, monitor, env, state, callCtx.ToolCategory)
+		if errMessage := (*engine.ErrChatFinish)(nil); errors.As(err, &errMessage) && callCtx.Tool.Chat {
 			return &State{
 				Result: &errMessage.Message,
 			}, nil
@@ -433,18 +521,50 @@ func (r *Runner) resume(callCtx engine.Context, monitor Monitor, env []string, s
 			}
 		}
 
+		var content string
 		if state.ResumeInput != nil {
-			engineResults = append(engineResults, engine.CallResult{
-				User: *state.ResumeInput,
-			})
+			content = *state.ResumeInput
 		}
-
 		monitor.Event(Event{
 			Time:        time.Now(),
 			CallContext: callCtx.GetCallContext(),
 			Type:        EventTypeCallContinue,
 			ToolResults: len(callResults),
+			Content:     content,
 		})
+
+		e := engine.Engine{
+			Model:          r.c,
+			MCPRunner:      r.mcpRunner,
+			RuntimeManager: runtimeWithLogger(callCtx, monitor, r.runtimeManager),
+			Progress:       progress,
+			Env:            env,
+		}
+
+		var contentInput string
+
+		if state.Continuation != nil && state.Continuation.State != nil {
+			contentInput = state.Continuation.State.Input
+		}
+
+		if state.ResumeInput != nil {
+			contentInput = *state.ResumeInput
+		}
+
+		callCtx.InputContext, err = r.getContext(callCtx, state, monitor, env, contentInput)
+		if err != nil {
+			return state, err
+		}
+
+		if state.ResumeInput != nil {
+			input, err := r.handleInput(callCtx, monitor, env, *state.ResumeInput)
+			if err != nil {
+				return state, err
+			}
+			engineResults = append(engineResults, engine.CallResult{
+				User: input,
+			})
+		}
 
 		nextContinuation, err := e.Continue(callCtx, state.Continuation.State, engineResults...)
 		if err != nil {
@@ -472,7 +592,7 @@ func streamProgress(callCtx *engine.Context, monitor Monitor) (chan<- types.Comp
 					CallContext:      callCtx.GetCallContext(),
 					Type:             EventTypeCallProgress,
 					ChatCompletionID: status.CompletionID,
-					Content:          message.String(),
+					Content:          getEventContent(message.String(), *callCtx),
 				})
 			} else {
 				monitor.Event(Event{
@@ -482,6 +602,7 @@ func streamProgress(callCtx *engine.Context, monitor Monitor) (chan<- types.Comp
 					ChatCompletionID:   status.CompletionID,
 					ChatRequest:        status.Request,
 					ChatResponse:       status.Response,
+					Usage:              status.Usage,
 					ChatResponseCached: status.Cached,
 				})
 			}
@@ -498,21 +619,39 @@ func streamProgress(callCtx *engine.Context, monitor Monitor) (chan<- types.Comp
 }
 
 func (r *Runner) subCall(ctx context.Context, parentContext engine.Context, monitor Monitor, env []string, toolID, input, callID string, toolCategory engine.ToolCategory) (*State, error) {
-	callCtx, err := parentContext.SubCall(ctx, toolID, callID, toolCategory)
+	callCtx, err := parentContext.SubCallContext(ctx, input, toolID, callID, toolCategory)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.call(callCtx, monitor, env, input)
+	if toolCategory == engine.ContextToolCategory && callCtx.Tool.IsNoop() {
+		return &State{
+			Result: new(string),
+		}, nil
+	}
+
+	state, err := r.call(callCtx, monitor, env, input)
+	if finishErr := (*engine.ErrChatFinish)(nil); errors.As(err, &finishErr) && callCtx.Tool.Chat {
+		return &State{
+			Result: &finishErr.Message,
+		}, nil
+	}
+	return state, err
 }
 
-func (r *Runner) subCallResume(ctx context.Context, parentContext engine.Context, monitor Monitor, env []string, toolID, callID string, state *State) (*State, error) {
-	callCtx, err := parentContext.SubCall(ctx, toolID, callID, engine.NoCategory)
+func (r *Runner) subCallResume(ctx context.Context, parentContext engine.Context, monitor Monitor, env []string, toolID, callID string, state *State, toolCategory engine.ToolCategory) (*State, error) {
+	callCtx, err := parentContext.SubCallContext(ctx, "", toolID, callID, toolCategory)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.resume(callCtx, monitor, env, state)
+	state, err = r.resume(callCtx, monitor, env, state)
+	if finishErr := (*engine.ErrChatFinish)(nil); errors.As(err, &finishErr) && callCtx.Tool.Chat {
+		return &State{
+			Result: &finishErr.Message,
+		}, nil
+	}
+	return state, err
 }
 
 type SubCallResult struct {
@@ -528,10 +667,26 @@ func (r *Runner) newDispatcher(ctx context.Context) dispatcher {
 	return newParallelDispatcher(ctx)
 }
 
-func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string, state *State) (_ *State, callResults []SubCallResult, _ error) {
+func idForToolCall(id string, state *engine.Return) string {
+	if state == nil || state.State == nil {
+		return id
+	}
+	tc, ok := state.State.Pending[id]
+	if !ok || tc.Index == nil {
+		return id
+	}
+	return fmt.Sprintf("%03d", *tc.Index)
+}
+
+func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string, state *State, toolCategory engine.ToolCategory) (*State, []SubCallResult, error) {
 	var (
-		resultLock sync.Mutex
+		resultLock  sync.Mutex
+		callResults []SubCallResult
 	)
+
+	if state.Continuation != nil {
+		callCtx.LastReturn = state.Continuation
+	}
 
 	if state.SubCallID != "" {
 		if state.ResumeInput == nil {
@@ -541,9 +696,7 @@ func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string,
 		for _, subCall := range state.SubCalls {
 			if subCall.CallID == state.SubCallID {
 				found = true
-				subState := *subCall.State
-				subState.ResumeInput = state.ResumeInput
-				result, err := r.subCallResume(callCtx.Ctx, callCtx, monitor, env, subCall.ToolID, subCall.CallID, subCall.State.WithInput(state.ResumeInput))
+				result, err := r.subCallResume(callCtx.Ctx, callCtx, monitor, env, subCall.ToolID, subCall.CallID, subCall.State.WithResumeInput(state.ResumeInput), toolCategory)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -553,7 +706,7 @@ func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string,
 					State:  result,
 				})
 				// Clear the input, we have already processed it
-				state = state.WithInput(nil)
+				state = state.WithResumeInput(nil)
 			} else {
 				callResults = append(callResults, subCall)
 			}
@@ -568,12 +721,26 @@ func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string,
 
 	// Sort the id so if sequential the results are predictable
 	ids := maps.Keys(state.Continuation.Calls)
-	sort.Strings(ids)
+	sort.Slice(ids, func(i, j int) bool {
+		return idForToolCall(ids[i], state.Continuation) < idForToolCall(ids[j], state.Continuation)
+	})
 
 	for _, id := range ids {
 		call := state.Continuation.Calls[id]
+		if call.Missing {
+			resultLock.Lock()
+			callResults = append(callResults, SubCallResult{
+				ToolID: call.ToolID,
+				CallID: id,
+				State: &State{
+					Result: &[]string{fmt.Sprintf("ERROR: can not call unknown tool named [%s]", call.ToolID)}[0],
+				},
+			})
+			resultLock.Unlock()
+			continue
+		}
 		d.Run(func(ctx context.Context) error {
-			result, err := r.subCall(ctx, callCtx, monitor, env, call.ToolID, call.Input, id, "")
+			result, err := r.subCall(ctx, callCtx, monitor, env, call.ToolID, call.Input, id, toolCategory)
 			if err != nil {
 				return err
 			}
@@ -597,34 +764,51 @@ func (r *Runner) subCalls(callCtx engine.Context, monitor Monitor, env []string,
 	return state, callResults, nil
 }
 
-func (r *Runner) handleCredentials(callCtx engine.Context, monitor Monitor, env []string) ([]string, error) {
+func getEventContent(content string, callCtx engine.Context) string {
+	// If it is a credential tool, the progress and finish events may contain its output, which is sensitive, so we don't return it.
+	if callCtx.ToolCategory == engine.CredentialToolCategory {
+		return ""
+	}
+
+	return content
+}
+
+func (r *Runner) handleCredentials(callCtx engine.Context, monitor Monitor, env []string, credToolRefs []types.ToolReference) ([]string, error) {
 	// Since credential tools (usually) prompt the user, we want to only run one at a time.
 	r.credMutex.Lock()
 	defer r.credMutex.Unlock()
 
-	// Set up the credential store.
-	c, err := config.ReadCLIConfig("")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CLI config: %w", err)
-	}
-
-	store, err := credentials.NewStore(c, r.credCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create credentials store: %w", err)
-	}
-
 	// Parse the credential overrides from the command line argument, if there are any.
-	var credOverrides map[string]map[string]string
-	if r.credOverrides != "" {
-		credOverrides, err = parseCredentialOverrides(r.credOverrides)
+	var (
+		credOverrides map[string]map[string]string
+		err           error
+	)
+	if r.credOverrides != nil {
+		credOverrides, err = credentials.ParseCredentialOverrides(r.credOverrides)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse credential overrides: %w", err)
 		}
 	}
 
-	for _, credToolName := range callCtx.Tool.Credentials {
+	var nearestExpiration *time.Time
+	for _, ref := range credToolRefs {
+		toolName, credentialAlias, checkParam, args, err := types.ParseCredentialArgs(ref.Reference, callCtx.Input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse credential tool %q: %w", ref.Reference, err)
+		}
+
+		if callCtx.Program.ToolSet[ref.ToolID].IsNoop() {
+			// ignore empty tools
+			continue
+		}
+
+		credName := toolName
+		if credentialAlias != "" {
+			credName = credentialAlias
+		}
+
 		// Check whether the credential was overridden before we attempt to find it in the store or run the tool.
-		if override, exists := credOverrides[credToolName]; exists {
+		if override, exists := credOverrides[credName]; exists {
 			for k, v := range override {
 				env = append(env, fmt.Sprintf("%s=%s", k, v))
 			}
@@ -632,76 +816,127 @@ func (r *Runner) handleCredentials(callCtx engine.Context, monitor Monitor, env 
 		}
 
 		var (
-			cred   *credentials.Credential
-			exists bool
-			err    error
+			c                *credentials.Credential
+			resultCredential credentials.Credential
+			exists           bool
+			refresh          bool
 		)
 
-		// Only try to look up the cred if the tool is on GitHub.
-		if isGitHubTool(credToolName) {
-			cred, exists, err = store.Get(credToolName)
+		// Only try to look up the cred if the tool is on GitHub or has an alias.
+		// If it is a GitHub tool and has an alias, the alias overrides the tool name, so we use it as the credential name.
+		if isGitHubTool(toolName) && credentialAlias == "" {
+			c, exists, err = r.credStore.Get(callCtx.Ctx, toolName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get credentials for tool %s: %w", credToolName, err)
+				return nil, fmt.Errorf("failed to get credentials for tool %s: %w", toolName, err)
 			}
+		} else if credentialAlias != "" {
+			c, exists, err = r.credStore.Get(callCtx.Ctx, credentialAlias)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get credential %s: %w", credentialAlias, err)
+			}
+		}
+
+		if c == nil {
+			c = &credentials.Credential{}
 		}
 
 		// If the credential doesn't already exist in the store, run the credential tool in order to get the value,
 		// and save it in the store.
-		if !exists {
-			credToolID, ok := callCtx.Tool.ToolMapping[credToolName]
-			if !ok {
-				return nil, fmt.Errorf("failed to find ID for tool %s", credToolName)
+		if !exists || c.IsExpired() || checkParam != c.CheckParam {
+			// If the existing credential is expired, we need to provide it to the cred tool through the environment.
+			// If the check parameter is different, then we don't refresh. We should re-auth below.
+			if exists && c.IsExpired() && checkParam == c.CheckParam {
+				refresh = true
+				credJSON, err := json.Marshal(c)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal credential: %w", err)
+				}
+				env = append(env, fmt.Sprintf("%s=%s", credentials.ExistingCredential, string(credJSON)))
 			}
 
-			subCtx, err := callCtx.SubCall(callCtx.Ctx, credToolID, "", engine.CredentialToolCategory) // leaving callID as "" will cause it to be set by the engine
-			if err != nil {
-				return nil, fmt.Errorf("failed to create subcall context for tool %s: %w", credToolName, err)
+			// Get the input for the credential tool, if there is any.
+			var input string
+			if args != nil {
+				inputBytes, err := json.Marshal(args)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal args for tool %s: %w", ref.Reference, err)
+				}
+				input = string(inputBytes)
 			}
 
-			res, err := r.call(subCtx, monitor, env, "")
+			res, err := r.subCall(callCtx.Ctx, callCtx, monitor, env, ref.ToolID, input, "", engine.CredentialToolCategory)
 			if err != nil {
-				return nil, fmt.Errorf("failed to run credential tool %s: %w", credToolName, err)
+				return nil, err
 			}
 
 			if res.Result == nil {
-				return nil, fmt.Errorf("invalid state: credential tool [%s] can not result in a continuation", credToolName)
+				return nil, fmt.Errorf("invalid state: credential tool [%s] can not result in a continuation", ref.Reference)
 			}
 
-			var envMap struct {
-				Env map[string]string `json:"env"`
-			}
-			if err := json.Unmarshal([]byte(*res.Result), &envMap); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal credential tool %s response: %w", credToolName, err)
+			if *res.Result == "" {
+				continue
 			}
 
-			cred = &credentials.Credential{
-				ToolName: credToolName,
-				Env:      envMap.Env,
+			if strings.HasSuffix(*res.Result, engine.AbortedSuffix) {
+				continue
+			}
+
+			if err := json.Unmarshal([]byte(*res.Result), &resultCredential); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal credential tool %s response: %w", ref.Reference, err)
+			}
+			resultCredential.ToolName = credName
+			resultCredential.Type = credentials.CredentialTypeTool
+
+			if refresh {
+				// If this is a credential refresh, we need to make sure we use the same context.
+				resultCredential.Context = c.Context
+			} else {
+				// If it is a new credential, let the credential store determine the context.
+				resultCredential.Context = ""
 			}
 
 			isEmpty := true
-			for _, v := range cred.Env {
+			for _, v := range resultCredential.Env {
 				if v != "" {
 					isEmpty = false
 					break
 				}
 			}
 
-			// Only store the credential if the tool is on GitHub, and the credential is non-empty.
-			if isGitHubTool(credToolName) && callCtx.Program.ToolSet[credToolID].Source.Repo != nil {
-				if isEmpty {
-					log.Warnf("Not saving empty credential for tool %s", credToolName)
-				} else if err := store.Add(*cred); err != nil {
-					return nil, fmt.Errorf("failed to add credential for tool %s: %w", credToolName, err)
+			if !resultCredential.Ephemeral {
+				// Only store the credential if the tool is on GitHub or has an alias, and the credential is non-empty.
+				if (isGitHubTool(toolName) && callCtx.Program.ToolSet[ref.ToolID].Source.Repo != nil) || credentialAlias != "" {
+					if isEmpty {
+						log.Warnf("Not saving empty credential for tool %s", toolName)
+					} else {
+						if refresh {
+							err = r.credStore.Refresh(callCtx.Ctx, resultCredential)
+						} else {
+							err = r.credStore.Add(callCtx.Ctx, resultCredential)
+						}
+						if err != nil {
+							return nil, fmt.Errorf("failed to save credential for tool %s: %w", toolName, err)
+						}
+					}
+				} else {
+					log.Warnf("Not saving credential for tool %s - credentials will only be saved for tools from GitHub, or tools that use aliases.", toolName)
 				}
-			} else {
-				log.Warnf("Not saving credential for local tool %s - credentials will only be saved for tools from GitHub.", credToolName)
 			}
+		} else {
+			resultCredential = *c
 		}
 
-		for k, v := range cred.Env {
+		if resultCredential.ExpiresAt != nil && (nearestExpiration == nil || nearestExpiration.After(*resultCredential.ExpiresAt)) {
+			nearestExpiration = resultCredential.ExpiresAt
+		}
+
+		for k, v := range resultCredential.Env {
 			env = append(env, fmt.Sprintf("%s=%s", k, v))
 		}
+	}
+
+	if nearestExpiration != nil {
+		env = append(env, fmt.Sprintf("%s=%s", credentials.CredentialExpiration, nearestExpiration.Format(time.RFC3339)))
 	}
 
 	return env, nil

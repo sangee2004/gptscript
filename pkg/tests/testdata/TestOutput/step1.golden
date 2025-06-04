@@ -1,0 +1,48 @@
+`{
+  "done": false,
+  "content": "CHAT: true CONTENT: Response 1 CONTINUATION: true suffix\n",
+  "toolID": "testdata/TestOutput/test.gpt:",
+  "state": {
+    "continuation": {
+      "state": {
+        "input": "Input 1",
+        "completion": {
+          "model": "gpt-4o",
+          "internalSystemPrompt": false,
+          "messages": [
+            {
+              "role": "system",
+              "content": [
+                {
+                  "text": "\nTool body"
+                }
+              ],
+              "usage": {}
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "text": "Input 1"
+                }
+              ],
+              "usage": {}
+            },
+            {
+              "role": "assistant",
+              "content": [
+                {
+                  "text": "Response 1"
+                }
+              ],
+              "usage": {}
+            }
+          ],
+          "chat": true
+        }
+      },
+      "result": "CHAT: true CONTENT: Response 1 CONTINUATION: true suffix\n"
+    },
+    "continuationToolID": "testdata/TestOutput/test.gpt:"
+  }
+}`

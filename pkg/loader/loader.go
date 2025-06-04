@@ -11,22 +11,39 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/gptscript-ai/gptscript/pkg/assemble"
+	"github.com/gptscript-ai/gptscript/internal"
 	"github.com/gptscript-ai/gptscript/pkg/builtin"
+	"github.com/gptscript-ai/gptscript/pkg/cache"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
+	"github.com/gptscript-ai/gptscript/pkg/mcp"
+	"github.com/gptscript-ai/gptscript/pkg/openapi"
 	"github.com/gptscript-ai/gptscript/pkg/parser"
 	"github.com/gptscript-ai/gptscript/pkg/system"
 	"github.com/gptscript-ai/gptscript/pkg/types"
-	"gopkg.in/yaml.v3"
 )
+
+const CacheTimeout = time.Hour
+
+var Remap = map[string]string{}
+
+func init() {
+	remap := os.Getenv("GPTSCRIPT_TOOL_REMAP")
+	for _, pair := range strings.Split(remap, ",") {
+		k, v, ok := strings.Cut(pair, "=")
+		if ok {
+			Remap[k] = v
+		}
+	}
+}
 
 type source struct {
 	// Content The content of the source
-	Content io.ReadCloser
+	Content []byte
 	// Remote indicates that this file was loaded from a remote source (not local disk)
 	Remote bool
 	// Path is the path of this source used to find any relative references to this source
@@ -40,6 +57,11 @@ type source struct {
 	Repo *types.Repo
 }
 
+func (s source) WithRemote(remote bool) *source {
+	s.Remote = remote
+	return &s
+}
+
 func (s *source) String() string {
 	if s.Path == "" && s.Name == "" {
 		return ""
@@ -48,7 +70,7 @@ func (s *source) String() string {
 }
 
 func openFile(path string) (io.ReadCloser, bool, error) {
-	f, err := os.Open(path)
+	f, err := internal.FS.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, false, nil
 	} else if err != nil {
@@ -58,110 +80,163 @@ func openFile(path string) (io.ReadCloser, bool, error) {
 }
 
 func loadLocal(base *source, name string) (*source, bool, error) {
-	path := filepath.Join(base.Path, name)
+	var remapped bool
+	if !strings.HasPrefix(name, ".") {
+		for k, v := range Remap {
+			if strings.HasPrefix(name, k) {
+				name = v + name[len(k):]
+				remapped = true
+				break
+			}
+		}
+	}
 
-	content, ok, err := openFile(path)
+	filePath := name
+	if !remapped && !filepath.IsAbs(name) {
+		// We want to keep all strings in / format, and only convert to platform specific when reading
+		// This is why we use path instead of filepath.
+		filePath = path.Join(base.Path, name)
+	}
+
+	if s, err := fs.Stat(internal.FS, filepath.Clean(filePath)); err == nil && s.IsDir() {
+		for _, def := range types.DefaultFiles {
+			toolPath := path.Join(filePath, def)
+			if s, err := fs.Stat(internal.FS, filepath.Clean(toolPath)); err == nil && !s.IsDir() {
+				filePath = toolPath
+				break
+			}
+		}
+	}
+
+	content, ok, err := openFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, false, err
 	} else if !ok {
 		return nil, false, nil
 	}
-	log.Debugf("opened %s", path)
+	log.Debugf("opened %s", filePath)
+
+	defer content.Close()
+
+	data, err := io.ReadAll(content)
+	if err != nil {
+		return nil, false, err
+	}
 
 	return &source{
-		Content:  content,
+		Content:  data,
 		Remote:   false,
-		Path:     filepath.Dir(path),
-		Name:     filepath.Base(path),
-		Location: path,
+		Path:     path.Dir(filePath),
+		Name:     path.Base(filePath),
+		Location: filePath,
 	}, true, nil
 }
 
-func loadProgram(data []byte, into *types.Program, targetToolName string) (types.Tool, error) {
+func loadOpenAPI(prg *types.Program, data []byte) *openapi3.T {
 	var (
-		ext types.Program
+		openAPICacheKey     = hash.Digest(data)
+		openAPIDocument, ok = prg.OpenAPICache[openAPICacheKey].(*openapi3.T)
+		err                 error
 	)
 
-	if err := json.Unmarshal(data[len(assemble.Header):], &ext); err != nil {
-		return types.Tool{}, err
+	if ok {
+		return openAPIDocument
 	}
 
-	into.ToolSet = make(map[string]types.Tool, len(ext.ToolSet))
-	for k, v := range ext.ToolSet {
-		if builtinTool, ok := builtin.Builtin(k); ok {
-			v = builtinTool
-		}
-		into.ToolSet[k] = v
+	if prg.OpenAPICache == nil {
+		prg.OpenAPICache = map[string]any{}
 	}
 
-	tool := into.ToolSet[ext.EntryToolID]
-	if targetToolName == "" {
-		return tool, nil
+	openAPIDocument, err = openapi.LoadFromBytes(data)
+	if err != nil {
+		return nil
 	}
 
-	tool, ok := into.ToolSet[tool.LocalTools[targetToolName]]
-	if !ok {
-		return tool, &types.ErrToolNotFound{
-			ToolName: targetToolName,
-		}
-	}
-
-	return tool, nil
+	prg.OpenAPICache[openAPICacheKey] = openAPIDocument
+	return openAPIDocument
 }
 
-func readTool(ctx context.Context, prg *types.Program, base *source, targetToolName string) (types.Tool, error) {
-	data, err := io.ReadAll(base.Content)
-	if err != nil {
-		return types.Tool{}, err
-	}
-	_ = base.Content.Close()
-
-	if bytes.HasPrefix(data, assemble.Header) {
-		return loadProgram(data, prg, targetToolName)
-	}
-
-	var tools []types.Tool
-	if isOpenAPI(data) {
-		if t, err := openapi3.NewLoader().LoadFromData(data); err == nil {
-			if base.Remote {
-				tools, err = getOpenAPITools(t, base.Location)
-			} else {
-				tools, err = getOpenAPITools(t, "")
-			}
+func processMCP(ctx context.Context, tool []types.Tool, mcpLoader MCPLoader) (result []types.Tool, _ error) {
+	for _, t := range tool {
+		if t.IsMCP() {
+			mcpTools, err := mcpLoader.Load(ctx, t)
 			if err != nil {
-				return types.Tool{}, fmt.Errorf("error parsing OpenAPI definition: %w", err)
+				return nil, fmt.Errorf("error loading MCP tools: %w", err)
 			}
+			result = append(result, mcpTools...)
+		} else {
+			result = append(result, t)
+		}
+	}
+
+	return result, nil
+}
+
+func readTool(ctx context.Context, cache *cache.Client, mcp MCPLoader, prg *types.Program, base *source, targetToolName, defaultModel string) ([]types.Tool, error) {
+	data := base.Content
+
+	var (
+		tools     []types.Tool
+		isOpenAPI bool
+	)
+
+	if openAPIDocument := loadOpenAPI(prg, data); openAPIDocument != nil {
+		isOpenAPI = true
+		var err error
+		if base.Remote {
+			tools, err = getOpenAPITools(openAPIDocument, base.Location, base.Location, targetToolName)
+		} else {
+			tools, err = getOpenAPITools(openAPIDocument, "", base.Name, targetToolName)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error parsing OpenAPI definition: %w", err)
 		}
 	}
 
 	if ext := path.Ext(base.Name); len(tools) == 0 && ext != "" && ext != system.Suffix && utf8.Valid(data) {
 		tools = []types.Tool{
 			{
-				Parameters: types.Parameters{
-					Name: base.Name,
+				ToolDef: types.ToolDef{
+					Parameters: types.Parameters{
+						Name: base.Name,
+					},
+					Instructions: types.EchoPrefix + "\n" + string(data),
 				},
-				Instructions: types.PrintPrefix + "\n" + string(data),
 			},
 		}
 	}
 
 	// If we didn't get any tools from trying to parse it as OpenAPI, try to parse it as a GPTScript
 	if len(tools) == 0 {
-		tools, err = parser.Parse(bytes.NewReader(data), parser.Options{
-			AssignGlobals: true,
-		})
-		if err != nil {
-			return types.Tool{}, err
+		var err error
+		_, marshaled, ok := strings.Cut(string(data), "#!GPTSCRIPT")
+		if ok {
+			err = json.Unmarshal([]byte(marshaled), &tools)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing marshalled script: %w", err)
+			}
+		} else {
+			tools, err = parser.ParseTools(bytes.NewReader(data), parser.Options{
+				AssignGlobals: true,
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	if len(tools) == 0 {
-		return types.Tool{}, fmt.Errorf("no tools found in %s", base)
+		return nil, fmt.Errorf("no tools found in %s", base)
+	}
+
+	tools, err := processMCP(ctx, tools, mcp)
+	if err != nil {
+		return nil, err
 	}
 
 	var (
-		localTools = types.ToolSet{}
-		mainTool   types.Tool
+		localTools  = types.ToolSet{}
+		targetTools []types.Tool
 	)
 
 	for i, tool := range tools {
@@ -170,38 +245,87 @@ func readTool(ctx context.Context, prg *types.Program, base *source, targetToolN
 		tool.Source.Repo = base.Repo
 
 		// Probably a better way to come up with an ID
-		tool.ID = tool.Source.String()
+		tool.ID = tool.Source.Location + ":" + tool.Name
 
-		if i == 0 {
-			mainTool = tool
+		if i != 0 && tool.Name == "" {
+			return nil, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo, fmt.Errorf("only the first tool in a file can have no name"))
 		}
 
-		if i != 0 && tool.Parameters.Name == "" {
-			return types.Tool{}, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo, fmt.Errorf("only the first tool in a file can have no name"))
+		if i != 0 && tool.GlobalModelName != "" {
+			return nil, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo, fmt.Errorf("only the first tool in a file can have global model name"))
 		}
 
-		if targetToolName != "" && strings.EqualFold(tool.Parameters.Name, targetToolName) {
-			mainTool = tool
+		if i != 0 && len(tool.GlobalTools) > 0 {
+			return nil, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo, fmt.Errorf("only the first tool in a file can have global tools"))
 		}
 
-		if existing, ok := localTools[tool.Parameters.Name]; ok {
-			return types.Tool{}, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo,
-				fmt.Errorf("duplicate tool name [%s] in %s found at lines %d and %d", tool.Parameters.Name, tool.Source.Location,
+		// Determine targetTools
+		if isOpenAPI && os.Getenv("GPTSCRIPT_OPENAPI_REVAMP") == "true" {
+			targetTools = append(targetTools, tool)
+		} else {
+			if i == 0 && targetToolName == "" {
+				targetTools = append(targetTools, tool)
+			}
+
+			if targetToolName != "" && tool.Name != "" {
+				if strings.EqualFold(tool.Name, targetToolName) {
+					targetTools = append(targetTools, tool)
+				} else if strings.Contains(targetToolName, "*") {
+					var patterns []string
+					if strings.Contains(targetToolName, "|") {
+						patterns = strings.Split(targetToolName, "|")
+					} else {
+						patterns = []string{targetToolName}
+					}
+
+					for _, pattern := range patterns {
+						match, err := filepath.Match(strings.ToLower(pattern), strings.ToLower(tool.Name))
+						if err != nil {
+							return nil, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo, err)
+						}
+						if match {
+							targetTools = append(targetTools, tool)
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if existing, ok := localTools[strings.ToLower(tool.Name)]; ok {
+			return nil, parser.NewErrLine(tool.Source.Location, tool.Source.LineNo,
+				fmt.Errorf("duplicate tool name [%s] in %s found at lines %d and %d", tool.Name, tool.Source.Location,
 					tool.Source.LineNo, existing.Source.LineNo))
 		}
 
-		localTools[tool.Parameters.Name] = tool
+		localTools[strings.ToLower(tool.Name)] = tool
 	}
 
-	return link(ctx, prg, base, mainTool, localTools)
+	return linkAll(ctx, cache, mcp, prg, base, targetTools, localTools, defaultModel)
 }
 
-func link(ctx context.Context, prg *types.Program, base *source, tool types.Tool, localTools types.ToolSet) (types.Tool, error) {
+func linkAll(ctx context.Context, cache *cache.Client, mcp MCPLoader, prg *types.Program, base *source, tools []types.Tool, localTools types.ToolSet, defaultModel string) (result []types.Tool, _ error) {
+	localToolsMapping := make(map[string]string, len(tools))
+	for _, localTool := range localTools {
+		localToolsMapping[strings.ToLower(localTool.Name)] = localTool.ID
+	}
+
+	for _, tool := range tools {
+		tool, err := link(ctx, cache, mcp, prg, base, tool, localTools, localToolsMapping, defaultModel)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, tool)
+	}
+	return
+}
+
+func link(ctx context.Context, cache *cache.Client, mcp MCPLoader, prg *types.Program, base *source, tool types.Tool, localTools types.ToolSet, localToolsMapping map[string]string, defaultModel string) (types.Tool, error) {
 	if existing, ok := prg.ToolSet[tool.ID]; ok {
 		return existing, nil
 	}
 
-	tool.ToolMapping = map[string]string{}
+	tool.ToolMapping = map[string][]types.ToolReference{}
 	tool.LocalTools = map[string]string{}
 	toolNames := map[string]struct{}{}
 
@@ -212,39 +336,39 @@ func link(ctx context.Context, prg *types.Program, base *source, tool types.Tool
 	// The below is done in two loops so that local names stay as the tool names
 	// and don't get mangled by external references
 
-	for _, targetToolName := range slices.Concat(tool.Parameters.Tools,
-		tool.Parameters.Export,
-		tool.Parameters.ExportContext,
-		tool.Parameters.Context,
-		tool.Parameters.Credentials) {
-		localTool, ok := localTools[targetToolName]
+	for _, targetToolName := range tool.ToolRefNames() {
+		noArgs, _ := types.SplitArg(targetToolName)
+		localTool, ok := localTools[strings.ToLower(noArgs)]
 		if ok {
 			var linkedTool types.Tool
 			if existing, ok := prg.ToolSet[localTool.ID]; ok {
 				linkedTool = existing
 			} else {
 				var err error
-				linkedTool, err = link(ctx, prg, base, localTool, localTools)
+				linkedTool, err = link(ctx, cache, mcp, prg, base, localTool, localTools, localToolsMapping, defaultModel)
 				if err != nil {
 					return types.Tool{}, fmt.Errorf("failed linking %s at %s: %w", targetToolName, base, err)
 				}
 			}
 
-			tool.ToolMapping[targetToolName] = linkedTool.ID
+			tool.AddToolMapping(targetToolName, linkedTool)
 			toolNames[targetToolName] = struct{}{}
 		} else {
-			toolName, subTool := SplitToolRef(targetToolName)
-			resolvedTool, err := resolve(ctx, prg, base, toolName, subTool)
+			toolName, subTool := types.SplitToolRef(targetToolName)
+			resolvedTools, err := resolve(ctx, cache, mcp, prg, base, toolName, subTool, defaultModel)
 			if err != nil {
-				return types.Tool{}, fmt.Errorf("failed resolving %s at %s: %w", targetToolName, base, err)
+				return types.Tool{}, fmt.Errorf("failed resolving %s from %s: %w", targetToolName, base, err)
 			}
-
-			tool.ToolMapping[targetToolName] = resolvedTool.ID
+			for _, resolvedTool := range resolvedTools {
+				tool.AddToolMapping(targetToolName, resolvedTool)
+			}
 		}
 	}
 
-	for _, localTool := range localTools {
-		tool.LocalTools[localTool.Parameters.Name] = localTool.ID
+	tool.LocalTools = localToolsMapping
+
+	if tool.ModelName == "" {
+		tool.ModelName = defaultModel
 	}
 
 	tool = builtin.SetDefaults(tool)
@@ -253,57 +377,130 @@ func link(ctx context.Context, prg *types.Program, base *source, tool types.Tool
 	return tool, nil
 }
 
-func ProgramFromSource(ctx context.Context, content, subToolName string) (types.Program, error) {
+func ProgramFromSource(ctx context.Context, content, subToolName string, opts ...Options) (types.Program, error) {
+	if log.IsDebug() {
+		start := time.Now()
+		defer func() {
+			log.Debugf("loaded program from source took %v", time.Since(start))
+		}()
+	}
+	opt := complete(opts...)
+
+	var locationPath, locationName string
+	if opt.Location != "" {
+		locationPath = path.Dir(opt.Location)
+		locationName = path.Base(opt.Location)
+	}
+
 	prg := types.Program{
 		ToolSet: types.ToolSet{},
 	}
-	tool, err := readTool(ctx, &prg, &source{
-		Content:  io.NopCloser(strings.NewReader(content)),
-		Location: "inline",
-	}, subToolName)
+	tools, err := readTool(ctx, opt.Cache, opt.MCPLoader, &prg, &source{
+		Content:  []byte(content),
+		Path:     locationPath,
+		Name:     locationName,
+		Location: opt.Location,
+	}, subToolName, opt.DefaultModel)
 	if err != nil {
 		return types.Program{}, err
 	}
-	prg.EntryToolID = tool.ID
+	prg.EntryToolID = tools[0].ID
 	return prg, nil
 }
 
-func Program(ctx context.Context, name, subToolName string) (types.Program, error) {
+type Options struct {
+	Cache        *cache.Client
+	Location     string
+	DefaultModel string
+	MCPLoader    MCPLoader
+}
+
+type MCPLoader interface {
+	Load(ctx context.Context, tool types.Tool) ([]types.Tool, error)
+	Close() error
+}
+
+func complete(opts ...Options) (result Options) {
+	for _, opt := range opts {
+		result.Cache = types.FirstSet(opt.Cache, result.Cache)
+		result.Location = types.FirstSet(opt.Location, result.Location)
+		result.DefaultModel = types.FirstSet(opt.DefaultModel, result.DefaultModel)
+		result.MCPLoader = types.FirstSet(opt.MCPLoader, result.MCPLoader)
+	}
+
+	if result.Location == "" {
+		result.Location = "inline"
+	}
+
+	if result.DefaultModel == "" {
+		result.DefaultModel = builtin.GetDefaultModel()
+	}
+
+	if result.MCPLoader == nil {
+		result.MCPLoader = mcp.DefaultLoader
+	}
+
+	return
+}
+
+func Program(ctx context.Context, name, subToolName string, opts ...Options) (types.Program, error) {
+	// We want all paths to have / not \
+	name = strings.ReplaceAll(name, "\\", "/")
+
+	if log.IsDebug() {
+		start := time.Now()
+		defer func() {
+			log.Debugf("loaded program %s source took %v", name, time.Since(start))
+		}()
+	}
+
+	opt := complete(opts...)
+
 	if subToolName == "" {
-		name, subToolName = SplitToolRef(name)
+		name, subToolName = types.SplitToolRef(name)
 	}
 	prg := types.Program{
 		Name:    name,
 		ToolSet: types.ToolSet{},
 	}
-	tool, err := resolve(ctx, &prg, &source{}, name, subToolName)
+	tools, err := resolve(ctx, opt.Cache, opt.MCPLoader, &prg, &source{}, name, subToolName, opt.DefaultModel)
 	if err != nil {
 		return types.Program{}, err
 	}
-	prg.EntryToolID = tool.ID
+	prg.EntryToolID = tools[0].ID
 	return prg, nil
 }
 
-func resolve(ctx context.Context, prg *types.Program, base *source, name, subTool string) (types.Tool, error) {
+func resolve(ctx context.Context, cache *cache.Client, mcp MCPLoader, prg *types.Program, base *source, name, subTool, defaultModel string) ([]types.Tool, error) {
 	if subTool == "" {
-		t, ok := builtin.Builtin(name)
+		t, ok := builtin.DefaultModel(name, defaultModel)
 		if ok {
 			prg.ToolSet[t.ID] = t
-			return t, nil
+			return []types.Tool{t}, nil
 		}
 	}
 
-	s, err := input(ctx, base, name)
+	s, err := input(ctx, cache, base, name)
 	if err != nil {
-		return types.Tool{}, err
+		return nil, err
 	}
 
-	return readTool(ctx, prg, s, subTool)
+	result, err := readTool(ctx, cache, mcp, prg, s, subTool, defaultModel)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, types.NewErrToolNotFound(types.ToToolName(name, subTool))
+	}
+
+	return result, nil
 }
 
-func input(ctx context.Context, base *source, name string) (*source, error) {
+func input(ctx context.Context, cache *cache.Client, base *source, name string) (*source, error) {
 	if strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
-		base.Remote = true
+		// copy and modify
+		base = base.WithRemote(true)
 	}
 
 	if !base.Remote {
@@ -313,37 +510,10 @@ func input(ctx context.Context, base *source, name string) (*source, error) {
 		}
 	}
 
-	s, ok, err := loadURL(ctx, base, name)
+	s, ok, err := loadURL(ctx, cache, base, name)
 	if err != nil || ok {
 		return s, err
 	}
 
 	return nil, fmt.Errorf("can not load tools path=%s name=%s", base.Path, name)
-}
-
-func SplitToolRef(targetToolName string) (toolName, subTool string) {
-	var (
-		fields = strings.Fields(targetToolName)
-		idx    = slices.Index(fields, "from")
-	)
-
-	if idx == -1 {
-		return strings.TrimSpace(targetToolName), ""
-	}
-
-	return strings.Join(fields[idx+1:], " "),
-		strings.Join(fields[:idx], " ")
-}
-
-func isOpenAPI(data []byte) bool {
-	var fragment struct {
-		Paths map[string]any `json:"paths,omitempty"`
-	}
-
-	if err := json.Unmarshal(data, &fragment); err != nil {
-		if err := yaml.Unmarshal(data, &fragment); err != nil {
-			return false
-		}
-	}
-	return len(fragment.Paths) > 0
 }

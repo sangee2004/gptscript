@@ -1,30 +1,46 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": null,
-  "Tools": [
+  "model": "gpt-4o",
+  "tools": [
     {
       "function": {
-        "toolID": "testdata/TestDualSubChat/test.gpt:6",
+        "toolID": "testdata/TestDualSubChat/test.gpt:chatbot",
         "name": "chatbot",
-        "parameters": null
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the assistant. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
       }
     },
     {
       "function": {
-        "toolID": "testdata/TestDualSubChat/test.gpt:13",
+        "toolID": "testdata/TestDualSubChat/test.gpt:chatbot2",
         "name": "chatbot2",
-        "parameters": null
+        "parameters": {
+          "properties": {
+            "defaultPromptParameter": {
+              "description": "Prompt to send to the assistant. This may be an instruction or question.",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
       }
     }
   ],
-  "Messages": [
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "Call chatbots"
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "user",
@@ -32,7 +48,8 @@
         {
           "text": "User 1"
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "assistant",
@@ -57,7 +74,8 @@
             }
           }
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "tool",
@@ -73,7 +91,8 @@
           "name": "chatbot",
           "arguments": "Input to chatbot1"
         }
-      }
+      },
+      "usage": {}
     },
     {
       "role": "tool",
@@ -89,12 +108,8 @@
           "name": "chatbot2",
           "arguments": "Input to chatbot2"
         }
-      }
+      },
+      "usage": {}
     }
-  ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  ]
 }`

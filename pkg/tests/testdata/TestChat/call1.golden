@@ -1,15 +1,15 @@
 `{
-  "Model": "gpt-4-turbo-preview",
-  "InternalSystemPrompt": false,
-  "Tools": null,
-  "Messages": [
+  "model": "gpt-4o",
+  "internalSystemPrompt": false,
+  "messages": [
     {
       "role": "system",
       "content": [
         {
           "text": "This is a chatbot"
         }
-      ]
+      ],
+      "usage": {}
     },
     {
       "role": "user",
@@ -17,12 +17,9 @@
         {
           "text": "Hello"
         }
-      ]
+      ],
+      "usage": {}
     }
   ],
-  "MaxTokens": 0,
-  "Temperature": null,
-  "JSONResponse": false,
-  "Grammar": "",
-  "Cache": null
+  "chat": true
 }`

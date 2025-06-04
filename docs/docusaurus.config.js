@@ -66,8 +66,8 @@ const config = {
             position: "right",
           },
           {
-            href: "https://tools.gptscript.ai/",
-            label: "Tool Search",
+            href: "mailto:info@acorn.io?subject=Reaching out from GPTScript Docs",
+            label: "Contact Us",
             position: "right",
           },
         ],

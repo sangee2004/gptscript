@@ -13,46 +13,50 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/gptscript-ai/gptscript/pkg/counter"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
 type Options struct {
-	DisplayProgress bool   `usage:"-"`
-	DumpState       string `usage:"Dump the internal execution state to a file"`
-	DebugMessages   bool   `usage:"Enable logging of chat completion calls"`
+	DumpState     string `usage:"Dump the internal execution state to a file"`
+	DebugMessages bool   `usage:"Enable logging of chat completion calls"`
 }
 
-func complete(opts ...Options) (result Options) {
+func Complete(opts ...Options) (result Options) {
 	for _, opt := range opts {
 		result.DumpState = types.FirstSet(opt.DumpState, result.DumpState)
-		result.DisplayProgress = types.FirstSet(opt.DisplayProgress, result.DisplayProgress)
 		result.DebugMessages = types.FirstSet(opt.DebugMessages, result.DebugMessages)
 	}
 	return
 }
 
 type Console struct {
-	dumpState       string
-	displayProgress bool
-	printMessages   bool
+	dumpState     string
+	printMessages bool
+	callLock      sync.Mutex
 }
 
-var (
-	runID           int64
-	prettyIDCounter int64
-)
+var prettyIDCounter int64
 
 func (c *Console) Start(_ context.Context, prg *types.Program, _ []string, input string) (runner.Monitor, error) {
-	id := atomic.AddInt64(&runID, 1)
-	mon := newDisplay(c.dumpState, c.displayProgress, c.printMessages)
+	id := counter.Next()
+	mon := newDisplay(c.dumpState, c.printMessages)
+	mon.callLock = &c.callLock
 	mon.dump.ID = fmt.Sprint(id)
 	mon.dump.Program = prg
 	mon.dump.Input = input
 
-	log.Fields("runID", mon.dump.ID, "input", input, "program", prg).Debugf("Run started")
+	log.Fields("runID", mon.dump.ID, "input", input, "program", prg, "type", runner.EventTypeRunStart).Debugf("Run started")
 	return mon, nil
+}
+
+func (c *Console) Pause() func() {
+	c.callLock.Lock()
+	return func() {
+		c.callLock.Unlock()
+	}
 }
 
 type display struct {
@@ -61,7 +65,8 @@ type display struct {
 	livePrinter   *livePrinter
 	dumpState     string
 	callIDMap     map[string]string
-	callLock      sync.Mutex
+	callLock      *sync.Mutex
+	usage         types.Usage
 }
 
 type livePrinter struct {
@@ -209,6 +214,7 @@ func (d *display) Event(event runner.Event) {
 		"id", currentCall.ID,
 		"parentID", currentCall.ParentID,
 		"toolID", currentCall.ToolID,
+		"type", event.Type,
 	)
 
 	_, ok := d.callIDMap[currentCall.ID]
@@ -225,6 +231,10 @@ func (d *display) Event(event runner.Event) {
 		toolCategory:          event.CallContext.ToolCategory,
 		userSpecifiedToolName: event.CallContext.ToolName,
 	}
+
+	d.usage.PromptTokens += event.Usage.PromptTokens
+	d.usage.CompletionTokens += event.Usage.CompletionTokens
+	d.usage.TotalTokens += event.Usage.TotalTokens
 
 	switch event.Type {
 	case runner.EventTypeCallStart:
@@ -278,11 +288,14 @@ func (d *display) Event(event runner.Event) {
 	d.dump.Calls[currentIndex] = currentCall
 }
 
-func (d *display) Stop(output string, err error) {
+func (d *display) Stop(_ context.Context, output string, err error) {
 	d.callLock.Lock()
 	defer d.callLock.Unlock()
 
-	log.Fields("runID", d.dump.ID, "output", output, "err", err).Debugf("Run stopped")
+	log.Fields("runID", d.dump.ID, "output", output, "err", err, "type", runner.EventTypeRunFinish).Debugf("Run stopped")
+	if d.usage.TotalTokens > 0 {
+		log.Fields("runID", d.dump.ID, "total", d.usage.TotalTokens, "prompt", d.usage.PromptTokens, "completion", d.usage.CompletionTokens).Infof("usage   ")
+	}
 	d.dump.Output = output
 	d.dump.Err = err
 	if d.dumpState != "" {
@@ -295,25 +308,22 @@ func (d *display) Stop(output string, err error) {
 }
 
 func NewConsole(opts ...Options) *Console {
-	opt := complete(opts...)
+	opt := Complete(opts...)
 	return &Console{
-		dumpState:       opt.DumpState,
-		displayProgress: opt.DisplayProgress,
-		printMessages:   opt.DebugMessages,
+		dumpState:     opt.DumpState,
+		printMessages: opt.DebugMessages,
 	}
 }
 
-func newDisplay(dumpState string, progress, printMessages bool) *display {
+func newDisplay(dumpState string, printMessages bool) *display {
 	display := &display{
 		dumpState:     dumpState,
 		callIDMap:     make(map[string]string),
 		printMessages: printMessages,
 	}
-	if progress {
-		display.livePrinter = &livePrinter{
-			lastContent: map[string]string{},
-			callIDMap:   display.callIDMap,
-		}
+	display.livePrinter = &livePrinter{
+		lastContent: map[string]string{},
+		callIDMap:   display.callIDMap,
 	}
 	return display
 }
@@ -376,7 +386,7 @@ func (c callName) String() string {
 
 	for {
 		tool := c.prg.ToolSet[currentCall.ToolID]
-		name := tool.Parameters.Name
+		name := tool.Name
 		if name == "" {
 			name = tool.Source.Location
 		}

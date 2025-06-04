@@ -1,0 +1,16 @@
+`{
+  "model": "gpt-4o",
+  "internalSystemPrompt": false,
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "text": "I am agent3"
+        }
+      ],
+      "usage": {}
+    }
+  ],
+  "chat": true
+}`

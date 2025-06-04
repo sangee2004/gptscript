@@ -2,34 +2,80 @@ package engine
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"runtime"
 	"sort"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"github.com/google/shlex"
-	context2 "github.com/gptscript-ai/gptscript/pkg/context"
+	"github.com/gptscript-ai/gptscript/pkg/counter"
 	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/gptscript-ai/gptscript/pkg/version"
 )
 
-func (e *Engine) runCommand(ctx context.Context, tool types.Tool, input string, toolCategory ToolCategory) (cmdOut string, cmdErr error) {
-	id := fmt.Sprint(atomic.AddInt64(&completionID, 1))
+var requiredFileExtensions = map[string]string{
+	"powershell.exe": "*.ps1",
+	"powershell":     "*.ps1",
+}
 
+type outputWriter struct {
+	id       string
+	progress chan<- types.CompletionStatus
+	buf      bytes.Buffer
+}
+
+func (o *outputWriter) Write(p []byte) (n int, err error) {
+	o.buf.Write(p)
+	o.progress <- types.CompletionStatus{
+		CompletionID: o.id,
+		PartialResponse: &types.CompletionMessage{
+			Role:    types.CompletionMessageRoleTypeAssistant,
+			Content: types.Text(o.buf.String()),
+		},
+	}
+	return len(p), nil
+}
+
+func compressEnv(envs []string) (result []string) {
+	for _, env := range envs {
+		k, v, ok := strings.Cut(env, "=")
+		if !ok || len(v) < 40_000 {
+			result = append(result, env)
+			continue
+		}
+
+		out := bytes.NewBuffer(nil)
+		b64 := base64.NewEncoder(base64.StdEncoding, out)
+		gz := gzip.NewWriter(b64)
+		_, _ = gz.Write([]byte(v))
+		_ = gz.Close()
+		_ = b64.Close()
+		result = append(result, k+`={"_gz":"`+out.String()+`"}`)
+	}
+	return
+}
+
+func (e *Engine) runCommand(ctx Context, tool types.Tool, input string) (cmdOut string, cmdErr error) {
+	id := counter.Next()
+
+	var combinedOutput string
 	defer func() {
 		e.Progress <- types.CompletionStatus{
 			CompletionID: id,
 			Response: map[string]any{
-				"output": cmdOut,
-				"err":    cmdErr,
+				"output":     cmdOut,
+				"fullOutput": combinedOutput,
+				"err":        cmdErr,
 			},
 		}
 	}()
@@ -42,12 +88,50 @@ func (e *Engine) runCommand(ctx context.Context, tool types.Tool, input string, 
 				"input":   input,
 			},
 		}
-		return tool.BuiltinFunc(ctx, e.Env, input)
+
+		var (
+			progress = make(chan string)
+			wg       sync.WaitGroup
+		)
+		wg.Add(1)
+		defer wg.Wait()
+		defer close(progress)
+		go func() {
+			defer wg.Done()
+			buf := strings.Builder{}
+			for line := range progress {
+				buf.WriteString(line)
+				e.Progress <- types.CompletionStatus{
+					CompletionID: id,
+					PartialResponse: &types.CompletionMessage{
+						Role:    types.CompletionMessageRoleTypeAssistant,
+						Content: types.Text(buf.String()),
+					},
+				}
+			}
+		}()
+
+		return tool.BuiltinFunc(ctx.WrappedContext(e), e.Env, input, progress)
 	}
 
-	cmd, stop, err := e.newCommand(ctx, nil, tool, input)
+	var instructions []string
+	for _, inputContext := range ctx.InputContext {
+		instructions = append(instructions, inputContext.Content)
+	}
+
+	extraEnv := []string{
+		strings.TrimSpace("GPTSCRIPT_CONTEXT=" + strings.Join(instructions, "\n")),
+	}
+
+	commandCtx, cancel := context.WithCancel(ctx.Ctx)
+	defer cancel()
+
+	cmd, stop, err := e.newCommand(commandCtx, extraEnv, tool, input, true)
 	if err != nil {
-		return "", err
+		if ctx.ToolCategory == NoCategory && ctx.Parent != nil {
+			return fmt.Sprintf("ERROR: got (%v) while parsing command", err), nil
+		}
+		return "", fmt.Errorf("got (%v) while parsing command", err)
 	}
 	defer stop()
 
@@ -59,25 +143,39 @@ func (e *Engine) runCommand(ctx context.Context, tool types.Tool, input string, 
 		},
 	}
 
-	output := &bytes.Buffer{}
-	all := &bytes.Buffer{}
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = io.MultiWriter(all, os.Stderr)
-	cmd.Stdout = io.MultiWriter(all, output)
+	var (
+		stdout       = &bytes.Buffer{}
+		stdoutAndErr = &bytes.Buffer{}
+		progressOut  = &outputWriter{
+			id:       id,
+			progress: e.Progress,
+		}
+		result *bytes.Buffer
+	)
 
-	if toolCategory == CredentialToolCategory {
-		pause := context2.GetPauseFuncFromCtx(ctx)
-		unpause := pause()
-		defer unpause()
+	if tool.Stdin {
+		cmd.Stdin = strings.NewReader(input)
+	}
+	cmd.Stdout = io.MultiWriter(stdout, stdoutAndErr, progressOut)
+	cmd.Stderr = io.MultiWriter(stdoutAndErr, progressOut, os.Stderr)
+	result = stdout
+	defer func() {
+		combinedOutput = stdoutAndErr.String()
+	}()
+
+	ctx.OnUserCancel(commandCtx, cancel)
+
+	if err := cmd.Run(); err != nil && (commandCtx.Err() == nil || ctx.Ctx.Err() != nil) {
+		// If the command failed and the context hasn't been canceled, then return the error.
+		if ctx.ToolCategory == NoCategory && ctx.Parent != nil {
+			// If this is a sub-call, then don't return the error; return the error as a message so that the LLM can retry.
+			return fmt.Sprintf("ERROR: got (%v) while running tool, OUTPUT: %s", err, stdoutAndErr), nil
+		}
+		log.Errorf("failed to run tool [%s] cmd %v: %v", tool.Name, cmd.Args, err)
+		return "", fmt.Errorf("ERROR: %s: %w", stdoutAndErr, err)
 	}
 
-	if err := cmd.Run(); err != nil {
-		_, _ = os.Stderr.Write(output.Bytes())
-		log.Errorf("failed to run tool [%s] cmd %v: %v", tool.Parameters.Name, cmd.Args, err)
-		return "", fmt.Errorf("ERROR: %s: %w", all, err)
-	}
-
-	return output.String(), nil
+	return result.String(), IsChatFinishMessage(result.String())
 }
 
 func (e *Engine) getRuntimeEnv(ctx context.Context, tool types.Tool, cmd, env []string) ([]string, error) {
@@ -119,10 +217,8 @@ var ignoreENV = map[string]struct{}{
 }
 
 func appendEnv(envs []string, k, v string) []string {
-	for _, k := range []string{k, env.ToEnvLike(k)} {
-		if _, ignore := ignoreENV[k]; !ignore {
-			envs = append(envs, k+"="+v)
-		}
+	if _, ignore := ignoreENV[k]; !ignore {
+		envs = append(envs, strings.ToUpper(env.ToEnvLike(k))+"="+v)
 	}
 	return envs
 }
@@ -132,33 +228,42 @@ func appendInputAsEnv(env []string, input string) []string {
 	dec := json.NewDecoder(bytes.NewReader([]byte(input)))
 	dec.UseNumber()
 
-	if err := json.Unmarshal([]byte(input), &data); err != nil {
+	// If we don't create a new slice here, then parallel tool calls can end up getting messed up.
+	newEnv := make([]string, len(env), cap(env)+1+len(data))
+	copy(newEnv, env)
+
+	newEnv = appendEnv(newEnv, "GPTSCRIPT_INPUT", input)
+
+	if err := dec.Decode(&data); err != nil {
 		// ignore invalid JSON
-		return env
+		return newEnv
 	}
 
 	for k, v := range data {
 		switch val := v.(type) {
 		case string:
-			env = appendEnv(env, k, val)
+			newEnv = appendEnv(newEnv, k, val)
 		case json.Number:
-			env = appendEnv(env, k, string(val))
+			newEnv = appendEnv(newEnv, k, string(val))
 		case bool:
-			env = appendEnv(env, k, fmt.Sprint(val))
+			newEnv = appendEnv(newEnv, k, fmt.Sprint(val))
 		default:
 			data, err := json.Marshal(val)
 			if err == nil {
-				env = appendEnv(env, k, string(data))
+				newEnv = appendEnv(newEnv, k, string(data))
 			}
 		}
 	}
 
-	env = appendEnv(env, "GPTSCRIPT_INPUT", input)
-	return env
+	return newEnv
 }
 
-func (e *Engine) newCommand(ctx context.Context, extraEnv []string, tool types.Tool, input string) (*exec.Cmd, func(), error) {
-	envvars := append(e.Env[:], extraEnv...)
+func (e *Engine) newCommand(ctx context.Context, extraEnv []string, tool types.Tool, input string, useShell bool) (*exec.Cmd, func(), error) {
+	if runtime.GOOS == "windows" {
+		useShell = false
+	}
+
+	envvars := append(e.Env, extraEnv...)
 	envvars = appendInputAsEnv(envvars, input)
 	if log.IsDebug() {
 		envvars = append(envvars, "GPTSCRIPT_DEBUG=true")
@@ -167,9 +272,17 @@ func (e *Engine) newCommand(ctx context.Context, extraEnv []string, tool types.T
 	interpreter, rest, _ := strings.Cut(tool.Instructions, "\n")
 	interpreter = strings.TrimSpace(interpreter)[2:]
 
-	args, err := shlex.Split(interpreter)
-	if err != nil {
-		return nil, nil, err
+	var (
+		args []string
+		err  error
+	)
+	if useShell {
+		args = strings.Fields(interpreter)
+	} else {
+		args, err = shlex.Split(interpreter)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	envvars, err = e.getRuntimeEnv(ctx, tool, args, envvars)
@@ -178,28 +291,26 @@ func (e *Engine) newCommand(ctx context.Context, extraEnv []string, tool types.T
 	}
 
 	envvars, envMap := envAsMapAndDeDup(envvars)
-	for i, arg := range args {
-		args[i] = os.Expand(arg, func(s string) string {
-			return envMap[s]
-		})
+
+	if runtime.GOOS == "windows" && (args[0] == "/bin/bash" || args[0] == "/bin/sh") {
+		args[0] = path.Base(args[0])
 	}
 
 	if runtime.GOOS == "windows" && (args[0] == "/usr/bin/env" || args[0] == "/bin/env") {
 		args = args[1:]
 	}
 
-	var (
-		cmdArgs = args[1:]
-		stop    = func() {}
-	)
+	ctx, cancel := context.WithCancel(ctx)
+	stop := cancel
 
 	if strings.TrimSpace(rest) != "" {
-		f, err := os.CreateTemp("", version.ProgramName)
+		f, err := os.CreateTemp(env.Getenv("GPTSCRIPT_TMPDIR", envvars), version.ProgramName+requiredFileExtensions[args[0]])
 		if err != nil {
 			return nil, nil, err
 		}
 		stop = func() {
 			_ = os.Remove(f.Name())
+			cancel()
 		}
 
 		_, err = f.Write([]byte(rest))
@@ -208,21 +319,33 @@ func (e *Engine) newCommand(ctx context.Context, extraEnv []string, tool types.T
 			stop()
 			return nil, nil, err
 		}
-		cmdArgs = append(cmdArgs, f.Name())
+		args = append(args, f.Name())
 	}
 
-	// This is a workaround for Windows, where the command interpreter is constructed with unix style paths
-	// It converts unix style paths to windows style paths
+	// Expand and/or normalize env references
+	for i, arg := range args {
+		args[i] = os.Expand(arg, func(s string) string {
+			if strings.HasPrefix(s, "!") {
+				return envMap[s[1:]]
+			}
+			if !useShell {
+				return envMap[s]
+			}
+			return "${" + s + "}"
+		})
+	}
+
 	if runtime.GOOS == "windows" {
-		parts := strings.Split(args[0], "/")
-		if parts[len(parts)-1] == "gptscript-go-tool" {
-			parts[len(parts)-1] = "gptscript-go-tool.exe"
-		}
-
-		args[0] = filepath.Join(parts...)
+		args[0] = strings.ReplaceAll(args[0], "/", "\\")
 	}
 
-	cmd := exec.CommandContext(ctx, env.Lookup(envvars, args[0]), cmdArgs...)
-	cmd.Env = envvars
+	if useShell {
+		args = append([]string{"/bin/sh", "-c"}, "exec "+strings.Join(args, " "))
+	} else {
+		args[0] = env.Lookup(envvars, args[0])
+	}
+
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd.Env = compressEnv(envvars)
 	return cmd, stop, nil
 }

@@ -4,19 +4,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"regexp"
 	"slices"
+	"sort"
 	"strings"
+	"time"
 
+	humav2 "github.com/danielgtaylor/huma/v2"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/gptscript-ai/gptscript/pkg/engine"
+	"github.com/gptscript-ai/gptscript/pkg/openapi"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
+
+var toolNameRegex = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
 
 // getOpenAPITools parses an OpenAPI definition and generates a set of tools from it.
 // Each operation will become a tool definition.
 // The tool's Instructions will be in the format "#!sys.openapi '{JSON Instructions}'",
-// where the JSON Instructions are a JSON-serialized engine.OpenAPIInstructions struct.
-func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
+// where the JSON Instructions are a JSON-serialized openapi.OperationInfo struct.
+func getOpenAPITools(t *openapi3.T, defaultHost, source, targetToolName string) ([]types.Tool, error) {
+	if os.Getenv("GPTSCRIPT_OPENAPI_REVAMP") == "true" {
+		return getOpenAPIToolsRevamp(t, source, targetToolName)
+	}
+
+	if log.IsDebug() {
+		start := time.Now()
+		defer func() {
+			log.Debugf("loaded openapi tools in %v", time.Since(start))
+		}()
+	}
 	// Determine the default server.
 	if len(t.Servers) == 0 {
 		if defaultHost != "" {
@@ -40,7 +57,7 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 		for _, item := range t.Security {
 			current := map[string]struct{}{}
 			for name := range item {
-				if scheme, ok := t.Components.SecuritySchemes[name]; ok && slices.Contains(engine.SupportedSecurityTypes, scheme.Value.Type) {
+				if scheme, ok := t.Components.SecuritySchemes[name]; ok && slices.Contains(openapi.GetSupportedSecurityTypes(), scheme.Value.Type) {
 					current[name] = struct{}{}
 				}
 			}
@@ -56,18 +73,37 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 		tools        []types.Tool
 		operationNum = 1 // Each tool gets an operation number, beginning with 1
 	)
-	for pathString, pathObj := range t.Paths.Map() {
+
+	pathMap := t.Paths.Map()
+
+	keys := make([]string, 0, len(pathMap))
+	for k := range pathMap {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, pathString := range keys {
+		pathObj := pathMap[pathString]
 		// Handle path-level server override, if one exists
 		pathServer := defaultServer
-		if pathObj.Servers != nil && len(pathObj.Servers) > 0 {
+		if len(pathObj.Servers) > 0 {
 			pathServer, err = parseServer(pathObj.Servers[0])
 			if err != nil {
 				return nil, err
 			}
 		}
 
+		// Generate a tool for each operation in this path.
+		operations := pathObj.Operations()
+		methods := make([]string, 0, len(operations))
+		for method := range operations {
+			methods = append(methods, method)
+		}
+		sort.Strings(methods)
 	operations:
-		for method, operation := range pathObj.Operations() {
+		for _, method := range methods {
+			operation := operations[method]
 			// Handle operation-level server override, if one exists
 			operationServer := pathServer
 			if operation.Servers != nil && len(*operation.Servers) > 0 {
@@ -88,6 +124,13 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 				toolDesc = toolDesc[:1024]
 			}
 
+			toolName := operation.OperationID
+			if toolName == "" {
+				// When there is no operation ID, we use the method + path as the tool name and remove all characters
+				// except letters, numbers, underscores, and hyphens.
+				toolName = toolNameRegex.ReplaceAllString(strings.ToLower(method)+strings.ReplaceAll(pathString, "/", "_"), "")
+			}
+
 			var (
 				// auths are represented as a list of maps, where each map contains the names of the required security schemes.
 				// Items within the same map are a logical AND. The maps themselves are a logical OR. For example:
@@ -97,20 +140,21 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 				//   - C
 				//     D
 				auths            []map[string]struct{}
-				queryParameters  []engine.Parameter
-				pathParameters   []engine.Parameter
-				headerParameters []engine.Parameter
-				cookieParameters []engine.Parameter
+				queryParameters  []openapi.Parameter
+				pathParameters   []openapi.Parameter
+				headerParameters []openapi.Parameter
+				cookieParameters []openapi.Parameter
 				bodyMIME         string
 			)
 			tool := types.Tool{
-				Parameters: types.Parameters{
-					Name:        operation.OperationID,
-					Description: toolDesc,
-					Arguments: &openapi3.Schema{
-						Type:       "object",
-						Properties: openapi3.Schemas{},
-						Required:   []string{},
+				ToolDef: types.ToolDef{
+					Parameters: types.Parameters{
+						Name:        toolName,
+						Description: toolDesc,
+						Arguments: &humav2.Schema{
+							Type:       humav2.TypeObject,
+							Properties: make(map[string]*humav2.Schema),
+						},
 					},
 				},
 				Source: types.ToolSource{
@@ -130,15 +174,15 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 				}
 
 				// Add the new arg to the tool's arguments
-				tool.Parameters.Arguments.Properties[param.Value.Name] = &openapi3.SchemaRef{Value: arg}
+				tool.Arguments.Properties[param.Value.Name] = openAPI3SchemaToHumaV2Schema(arg)
 
 				// Check whether it is required
 				if param.Value.Required {
-					tool.Parameters.Arguments.Required = append(tool.Parameters.Arguments.Required, param.Value.Name)
+					tool.Arguments.Required = append(tool.Arguments.Required, param.Value.Name)
 				}
 
 				// Add the parameter to the appropriate list for the tool's instructions
-				p := engine.Parameter{
+				p := openapi.Parameter{
 					Name:    param.Value.Name,
 					Style:   param.Value.Style,
 					Explode: param.Value.Explode,
@@ -160,19 +204,30 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 				for mime, content := range operation.RequestBody.Value.Content {
 					// Each MIME type needs to be handled individually, so we
 					// keep a list of the ones we support.
-					if !slices.Contains(engine.SupportedMIMETypes, mime) {
+					if !slices.Contains(openapi.GetSupportedMIMETypes(), mime) {
 						continue
 					}
 					bodyMIME = mime
+
+					// requestBody content mime without schema
+					if content == nil || content.Schema == nil {
+						continue
+					}
 
 					arg := content.Schema.Value
 					if arg.Description == "" {
 						arg.Description = content.Schema.Value.Description
 					}
 
+					// Read Only can not be sent in the request body, so we remove it
+					for key, property := range arg.Properties {
+						if property.Value.ReadOnly {
+							delete(arg.Properties, key)
+						}
+					}
 					// Unfortunately, the request body doesn't contain any good descriptor for it,
 					// so we just use "requestBodyContent" as the name of the arg.
-					tool.Parameters.Arguments.Properties["requestBodyContent"] = &openapi3.SchemaRef{Value: arg}
+					tool.Arguments.Properties["requestBodyContent"] = openAPI3SchemaToHumaV2Schema(arg)
 					break
 				}
 
@@ -205,18 +260,18 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 			}
 
 			// For each set of auths, turn them into SecurityInfos, and drop ones that contain unsupported types.
-			var infos [][]engine.SecurityInfo
+			var infos [][]openapi.SecurityInfo
 		outer:
 			for _, auth := range auths {
-				var current []engine.SecurityInfo
+				var current []openapi.SecurityInfo
 				for name := range auth {
 					if scheme, ok := t.Components.SecuritySchemes[name]; ok {
-						if !slices.Contains(engine.SupportedSecurityTypes, scheme.Value.Type) {
+						if !slices.Contains(openapi.GetSupportedSecurityTypes(), scheme.Value.Type) {
 							// There is an unsupported type in this auth, so move on to the next one.
 							continue outer
 						}
 
-						current = append(current, engine.SecurityInfo{
+						current = append(current, openapi.SecurityInfo{
 							Type:       scheme.Value.Type,
 							Name:       name,
 							In:         scheme.Value.In,
@@ -243,8 +298,19 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 				return nil, err
 			}
 
+			if len(infos) > 0 {
+				// Set up credential tools for the first set of infos.
+				for _, info := range infos[0] {
+					operationServerURL, err := url.Parse(operationServer)
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse operation server URL: %w", err)
+					}
+					tool.Credentials = append(tool.Credentials, info.GetCredentialToolStrings(operationServerURL.Hostname())...)
+				}
+			}
+
 			// Register
-			toolNames = append(toolNames, tool.Parameters.Name)
+			toolNames = append(toolNames, tool.Name)
 			tools = append(tools, tool)
 			operationNum++
 		}
@@ -252,9 +318,11 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 
 	// The first tool we generate is a special tool that just exports all the others.
 	exportTool := types.Tool{
-		Parameters: types.Parameters{
-			Description: fmt.Sprintf("This is a tool set for the %s OpenAPI spec", t.Info.Title),
-			Export:      toolNames,
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Description: fmt.Sprintf("This is a tool set for the %s OpenAPI spec", t.Info.Title),
+				Export:      toolNames,
+			},
 		},
 		Source: types.ToolSource{
 			LineNo: 0,
@@ -266,17 +334,17 @@ func getOpenAPITools(t *openapi3.T, defaultHost string) ([]types.Tool, error) {
 	return tools, nil
 }
 
-func instructionString(server, method, path, bodyMIME string, queryParameters, pathParameters, headerParameters, cookieParameters []engine.Parameter, infos [][]engine.SecurityInfo) (string, error) {
-	inst := engine.OpenAPIInstructions{
-		Server:           server,
-		Path:             path,
-		Method:           method,
-		BodyContentMIME:  bodyMIME,
-		SecurityInfos:    infos,
-		QueryParameters:  queryParameters,
-		PathParameters:   pathParameters,
-		HeaderParameters: headerParameters,
-		CookieParameters: cookieParameters,
+func instructionString(server, method, path, bodyMIME string, queryParameters, pathParameters, headerParameters, cookieParameters []openapi.Parameter, infos [][]openapi.SecurityInfo) (string, error) {
+	inst := openapi.OperationInfo{
+		Server:          server,
+		Path:            path,
+		Method:          method,
+		BodyContentMIME: bodyMIME,
+		SecurityInfos:   infos,
+		QueryParams:     queryParameters,
+		PathParams:      pathParameters,
+		HeaderParams:    headerParameters,
+		CookieParams:    cookieParameters,
 	}
 	instBytes, err := json.Marshal(inst)
 	if err != nil {
@@ -303,4 +371,231 @@ func parseServer(server *openapi3.Server) (string, error) {
 		return "", fmt.Errorf("invalid server URL: %s (must use HTTP or HTTPS; relative URLs not supported)", s)
 	}
 	return s, nil
+}
+
+// openAPI3SchemaToHumaV2Schema converts an openapi3.Schema to a humav2.Schema
+func openAPI3SchemaToHumaV2Schema(schema *openapi3.Schema) *humav2.Schema {
+	if schema == nil {
+		return nil
+	}
+
+	result := &humav2.Schema{
+		Title:       schema.Title,
+		Description: schema.Description,
+		Format:      schema.Format,
+		Nullable:    schema.Nullable,
+	}
+
+	// Convert type
+	if schema.Type != nil && len(*schema.Type) > 0 {
+		result.Type = (*schema.Type)[0]
+	}
+
+	// Convert enum
+	if schema.Enum != nil {
+		result.Enum = schema.Enum
+	}
+
+	// Convert min/max
+	if schema.Min != nil {
+		minVal := *schema.Min
+		result.Minimum = &minVal
+
+		// In OpenAPI 3, ExclusiveMin is a boolean flag that applies to Min
+		// In OpenAPI 3.1, ExclusiveMinimum is a separate value
+		if schema.ExclusiveMin {
+			result.ExclusiveMinimum = &minVal
+		}
+	}
+	if schema.Max != nil {
+		maxVal := *schema.Max
+		result.Maximum = &maxVal
+
+		// In OpenAPI 3, ExclusiveMax is a boolean flag that applies to Max
+		// In OpenAPI 3.1, ExclusiveMaximum is a separate value
+		if schema.ExclusiveMax {
+			result.ExclusiveMaximum = &maxVal
+		}
+	}
+
+	// Convert minLength/maxLength
+	if schema.MinLength != 0 {
+		minLength := int(schema.MinLength)
+		result.MinLength = &minLength
+	}
+	if schema.MaxLength != nil {
+		maxLength := int(*schema.MaxLength)
+		result.MaxLength = &maxLength
+	}
+
+	// Convert pattern
+	if schema.Pattern != "" {
+		result.Pattern = schema.Pattern
+	}
+
+	// Convert minItems/maxItems
+	if schema.MinItems != 0 {
+		minItems := int(schema.MinItems)
+		result.MinItems = &minItems
+	}
+	if schema.MaxItems != nil {
+		maxItems := int(*schema.MaxItems)
+		result.MaxItems = &maxItems
+	}
+
+	// Convert uniqueItems
+	result.UniqueItems = schema.UniqueItems
+
+	// Convert minProperties/maxProperties
+	if schema.MinProps != 0 {
+		minProps := int(schema.MinProps)
+		result.MinProperties = &minProps
+	}
+	if schema.MaxProps != nil {
+		maxProps := int(*schema.MaxProps)
+		result.MaxProperties = &maxProps
+	}
+
+	// Convert required
+	if schema.Required != nil {
+		result.Required = schema.Required
+	}
+
+	// Convert properties
+	if schema.Properties != nil {
+		result.Properties = make(map[string]*humav2.Schema, len(schema.Properties))
+		for name, propRef := range schema.Properties {
+			if propRef != nil && propRef.Value != nil {
+				result.Properties[name] = openAPI3SchemaToHumaV2Schema(propRef.Value)
+			}
+		}
+	}
+
+	// Convert items
+	if schema.Items != nil && schema.Items.Value != nil {
+		result.Items = openAPI3SchemaToHumaV2Schema(schema.Items.Value)
+	}
+
+	// Convert oneOf
+	if schema.OneOf != nil {
+		result.OneOf = make([]*humav2.Schema, len(schema.OneOf))
+		for i, oneOfRef := range schema.OneOf {
+			if oneOfRef != nil && oneOfRef.Value != nil {
+				result.OneOf[i] = openAPI3SchemaToHumaV2Schema(oneOfRef.Value)
+			}
+		}
+	}
+
+	// Convert anyOf
+	if schema.AnyOf != nil {
+		result.AnyOf = make([]*humav2.Schema, len(schema.AnyOf))
+		for i, anyOfRef := range schema.AnyOf {
+			if anyOfRef != nil && anyOfRef.Value != nil {
+				result.AnyOf[i] = openAPI3SchemaToHumaV2Schema(anyOfRef.Value)
+			}
+		}
+	}
+
+	// Convert allOf
+	if schema.AllOf != nil {
+		result.AllOf = make([]*humav2.Schema, len(schema.AllOf))
+		for i, allOfRef := range schema.AllOf {
+			if allOfRef != nil && allOfRef.Value != nil {
+				result.AllOf[i] = openAPI3SchemaToHumaV2Schema(allOfRef.Value)
+			}
+		}
+	}
+
+	// Convert not
+	if schema.Not != nil && schema.Not.Value != nil {
+		result.Not = openAPI3SchemaToHumaV2Schema(schema.Not.Value)
+	}
+
+	return result
+}
+
+func getOpenAPIToolsRevamp(t *openapi3.T, source, targetToolName string) ([]types.Tool, error) {
+	if t == nil {
+		return nil, fmt.Errorf("OpenAPI spec is nil")
+	} else if t.Info == nil {
+		return nil, fmt.Errorf("OpenAPI spec is missing info field")
+	}
+
+	if targetToolName == "" {
+		targetToolName = openapi.NoFilter
+	}
+
+	list := types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        types.ToolNormalizer("list-operations-" + t.Info.Title),
+				Description: fmt.Sprintf("List available operations for %s. Each of these operations is an OpenAPI operation. Run this tool before you do anything else.", t.Info.Title),
+			},
+			Instructions: fmt.Sprintf("%s %s %s %s", types.OpenAPIPrefix, openapi.ListTool, source, targetToolName),
+		},
+		Source: types.ToolSource{
+			LineNo: 0,
+		},
+	}
+
+	getSchema := types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        types.ToolNormalizer("get-schema-" + t.Info.Title),
+				Description: fmt.Sprintf("Get the JSONSchema for the arguments for an operation for %s. You must do this before you run the operation.", t.Info.Title),
+				Arguments: &humav2.Schema{
+					Type: humav2.TypeObject,
+					Properties: map[string]*humav2.Schema{
+						"operation": {
+							Type:        humav2.TypeString,
+							Title:       "operation",
+							Description: "the name of the operation to get the schema for",
+							Required:    []string{"operation"},
+						},
+					},
+				},
+			},
+			Instructions: fmt.Sprintf("%s %s %s %s", types.OpenAPIPrefix, openapi.GetSchemaTool, source, targetToolName),
+		},
+		Source: types.ToolSource{
+			LineNo: 1,
+		},
+	}
+
+	run := types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        types.ToolNormalizer("run-operation-" + t.Info.Title),
+				Description: fmt.Sprintf("Run an operation for %s. You MUST call %s for the operation before you use this tool.", t.Info.Title, openapi.GetSchemaTool),
+				Arguments: &humav2.Schema{
+					Type: humav2.TypeObject,
+					Properties: map[string]*humav2.Schema{
+						"operation": {
+							Type:        humav2.TypeString,
+							Title:       "operation",
+							Description: "the name of the operation to run",
+							Required:    []string{"operation"},
+						},
+						"args": {
+							Type:        humav2.TypeString,
+							Title:       "args",
+							Description: "the JSON string containing arguments; must match the JSONSchema for the operation",
+							Required:    []string{"args"},
+						},
+					},
+				},
+			},
+			Instructions: fmt.Sprintf("%s %s %s %s", types.OpenAPIPrefix, openapi.RunTool, source, targetToolName),
+		},
+	}
+
+	exportTool := types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Export: []string{list.Name, getSchema.Name, run.Name},
+			},
+		},
+	}
+
+	return []types.Tool{exportTool, list, getSchema, run}, nil
 }

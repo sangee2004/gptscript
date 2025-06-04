@@ -1,0 +1,128 @@
+types.ToolSet{
+	":": types.Tool{
+		ToolDef: types.ToolDef{Parameters: types.Parameters{
+			Description: "This is a tool set for the Swagger Petstore OpenAPI spec",
+			ModelName:   "gpt-4o",
+			Export: []string{
+				"listPets",
+				"createPets",
+				"showPetById",
+			},
+		}},
+		ID: ":",
+		ToolMapping: map[string][]types.ToolReference{
+			"createPets": {{
+				Reference: "createPets",
+				ToolID:    ":createPets",
+			}},
+			"listPets": {{
+				Reference: "listPets",
+				ToolID:    ":listPets",
+			}},
+			"showPetById": {{
+				Reference: "showPetById",
+				ToolID:    ":showPetById",
+			}},
+		},
+		LocalTools: map[string]string{
+			"":            ":",
+			"createpets":  ":createPets",
+			"listpets":    ":listPets",
+			"showpetbyid": ":showPetById",
+		},
+	},
+	":createPets": types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        "createPets",
+				Description: "Create a pet",
+				ModelName:   "gpt-4o",
+				Arguments: &huma.Schema{
+					Type: "object",
+					Properties: map[string]*huma.Schema{
+						"requestBodyContent": {
+							Type: "object",
+							Properties: map[string]*huma.Schema{
+								"id": {
+									Type:   "integer",
+									Format: "int64",
+								},
+								"name": {Type: "string"},
+								"tag":  {Type: "string"},
+							},
+							Required: []string{
+								"id",
+								"name",
+							},
+						},
+					},
+				},
+			},
+			Instructions: `#!sys.openapi '{"server":"http://petstore.swagger.io/v1","path":"/pets","method":"POST","bodyContentMIME":"application/json","securityInfos":null,"queryParameters":null,"pathParameters":null,"headerParameters":null,"cookieParameters":null}'`,
+		},
+		ID:          ":createPets",
+		ToolMapping: map[string][]types.ToolReference{},
+		LocalTools: map[string]string{
+			"":            ":",
+			"createpets":  ":createPets",
+			"listpets":    ":listPets",
+			"showpetbyid": ":showPetById",
+		},
+		Source: types.ToolSource{LineNo: 2},
+	},
+	":listPets": types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        "listPets",
+				Description: "List all pets",
+				ModelName:   "gpt-4o",
+				Arguments: &huma.Schema{
+					Type: "object",
+					Properties: map[string]*huma.Schema{"limit": {
+						Type:        "integer",
+						Description: "How many items to return at one time (max 100)",
+						Format:      "int32",
+						Maximum:     valast.Ptr(float64(100)),
+					}},
+				},
+			},
+			Instructions: `#!sys.openapi '{"server":"http://petstore.swagger.io/v1","path":"/pets","method":"GET","bodyContentMIME":"","securityInfos":null,"queryParameters":[{"name":"limit","style":"","explode":null}],"pathParameters":null,"headerParameters":null,"cookieParameters":null}'`,
+		},
+		ID:          ":listPets",
+		ToolMapping: map[string][]types.ToolReference{},
+		LocalTools: map[string]string{
+			"":            ":",
+			"createpets":  ":createPets",
+			"listpets":    ":listPets",
+			"showpetbyid": ":showPetById",
+		},
+		Source: types.ToolSource{LineNo: 1},
+	},
+	":showPetById": types.Tool{
+		ToolDef: types.ToolDef{
+			Parameters: types.Parameters{
+				Name:        "showPetById",
+				Description: "Info for a specific pet",
+				ModelName:   "gpt-4o",
+				Arguments: &huma.Schema{
+					Type: "object",
+					Properties: map[string]*huma.Schema{"petId": {
+						Type:        "string",
+						Description: "The id of the pet to retrieve",
+					}},
+					Required: []string{"petId"},
+				},
+			},
+			Instructions: `#!sys.openapi '{"server":"http://petstore.swagger.io/v1","path":"/pets/{petId}","method":"GET","bodyContentMIME":"","securityInfos":null,"queryParameters":null,"pathParameters":[{"name":"petId","style":"","explode":null}],"headerParameters":null,"cookieParameters":null}'`,
+		},
+		ID:          ":showPetById",
+		ToolMapping: map[string][]types.ToolReference{},
+		LocalTools: map[string]string{
+			"":            ":",
+			"createpets":  ":createPets",
+			"listpets":    ":listPets",
+			"showpetbyid": ":showPetById",
+		},
+		Source: types.ToolSource{LineNo: 3},
+	},
+}

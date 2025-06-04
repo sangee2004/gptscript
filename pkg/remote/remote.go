@@ -9,49 +9,61 @@ import (
 	"strings"
 	"sync"
 
+	openai2 "github.com/gptscript-ai/chat-completion-client"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
+	"github.com/gptscript-ai/gptscript/pkg/credentials"
+	"github.com/gptscript-ai/gptscript/pkg/engine"
 	env2 "github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/gptscript-ai/gptscript/pkg/loader"
-	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	"github.com/gptscript-ai/gptscript/pkg/openai"
+	"github.com/gptscript-ai/gptscript/pkg/prompt"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 )
 
-var log = mvl.Package()
-
 type Client struct {
-	clientsLock sync.Mutex
-	cache       *cache.Client
-	clients     map[string]*openai.Client
-	models      map[string]*openai.Client
-	runner      *runner.Runner
-	envs        []string
+	clientsLock     sync.Mutex
+	cache           *cache.Client
+	clients         map[string]clientInfo
+	runner          *runner.Runner
+	envs            []string
+	credStore       credentials.CredentialStore
+	defaultProvider string
 }
 
-func New(r *runner.Runner, envs []string, cache *cache.Client) *Client {
+func New(r *runner.Runner, envs []string, cache *cache.Client, credStore credentials.CredentialStore, defaultProvider string) *Client {
 	return &Client{
-		cache:  cache,
-		runner: r,
-		envs:   envs,
+		cache:           cache,
+		runner:          r,
+		envs:            envs,
+		credStore:       credStore,
+		defaultProvider: defaultProvider,
+		clients:         make(map[string]clientInfo),
 	}
 }
 
-func (c *Client) Call(ctx context.Context, messageRequest types.CompletionRequest, status chan<- types.CompletionStatus) (*types.CompletionMessage, error) {
-	c.clientsLock.Lock()
-	client, ok := c.models[messageRequest.Model]
-	c.clientsLock.Unlock()
-
-	if !ok {
+func (c *Client) Call(ctx context.Context, messageRequest types.CompletionRequest, env []string, status chan<- types.CompletionStatus) (*types.CompletionMessage, error) {
+	_, provider := c.parseModel(messageRequest.Model)
+	if provider == "" {
 		return nil, fmt.Errorf("failed to find remote model %s", messageRequest.Model)
 	}
 
-	_, modelName := loader.SplitToolRef(messageRequest.Model)
+	client, err := c.load(ctx, provider, env...)
+	if err != nil {
+		return nil, err
+	}
+
+	toolName, modelName := types.SplitToolRef(messageRequest.Model)
+	if modelName == "" {
+		// modelName is empty, then the messageRequest.Model is not of the form 'modelName from provider'
+		// Therefore, the modelName is the toolName
+		modelName = toolName
+	}
 	messageRequest.Model = modelName
-	return client.Call(ctx, messageRequest, status)
+	return client.Call(ctx, messageRequest, env, status)
 }
 
-func (c *Client) ListModels(ctx context.Context, providers ...string) (result []string, _ error) {
+func (c *Client) ListModels(ctx context.Context, providers ...string) (result []openai2.Model, _ error) {
 	for _, provider := range providers {
 		client, err := c.load(ctx, provider)
 		if err != nil {
@@ -61,34 +73,40 @@ func (c *Client) ListModels(ctx context.Context, providers ...string) (result []
 		if err != nil {
 			return nil, err
 		}
-		for _, model := range models {
-			result = append(result, model+" from "+provider)
+		for i := range models {
+			models[i].ID = fmt.Sprintf("%s from %s", models[i].ID, provider)
 		}
+
+		result = append(result, models...)
 	}
 
-	sort.Strings(result)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
 	return
 }
 
-func (c *Client) Supports(ctx context.Context, modelName string) (bool, error) {
-	toolName, modelNameSuffix := loader.SplitToolRef(modelName)
-	if modelNameSuffix == "" {
+func (c *Client) parseModel(modelString string) (modelName, providerName string) {
+	toolName, subTool := types.SplitToolRef(modelString)
+	if subTool == "" {
+		// This is just a plain model string "gpt4o"
+		return toolName, c.defaultProvider
+	}
+	// This is a provider string "modelName from provider"
+	return subTool, toolName
+}
+
+func (c *Client) Supports(ctx context.Context, modelString string) (bool, error) {
+	_, providerName := c.parseModel(modelString)
+	if providerName == "" {
 		return false, nil
 	}
 
-	client, err := c.load(ctx, toolName)
+	_, err := c.load(ctx, providerName)
 	if err != nil {
 		return false, err
 	}
 
-	c.clientsLock.Lock()
-	defer c.clientsLock.Unlock()
-
-	if c.models == nil {
-		c.models = map[string]*openai.Client{}
-	}
-
-	c.models[modelName] = client
 	return true, nil
 }
 
@@ -97,64 +115,64 @@ func isHTTPURL(toolName string) bool {
 		strings.HasPrefix(toolName, "https://")
 }
 
-func (c *Client) clientFromURL(apiURL string) (*openai.Client, error) {
+func (c *Client) clientFromURL(ctx context.Context, apiURL string, envs []string) (*openai.Client, error) {
 	parsed, err := url.Parse(apiURL)
 	if err != nil {
 		return nil, err
 	}
 	env := "GPTSCRIPT_PROVIDER_" + env2.ToEnvLike(parsed.Hostname()) + "_API_KEY"
-	apiKey := os.Getenv(env)
-	if apiKey == "" {
-		log.Warnf("No API key found for %s", env)
-		apiKey = "<unset>"
+	key := os.Getenv(env)
+
+	if key == "" && !isLocalhost(apiURL) {
+		var err error
+		key, err = c.retrieveAPIKey(ctx, env, apiURL, envs)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return openai.NewClient(openai.Options{
+
+	return openai.NewClient(ctx, c.credStore, openai.Options{
 		BaseURL: apiURL,
 		Cache:   c.cache,
-		APIKey:  apiKey,
+		APIKey:  key,
 	})
 }
 
-func (c *Client) load(ctx context.Context, toolName string) (*openai.Client, error) {
+func (c *Client) load(ctx context.Context, toolName string, env ...string) (*openai.Client, error) {
 	c.clientsLock.Lock()
 	defer c.clientsLock.Unlock()
 
 	client, ok := c.clients[toolName]
-	if ok {
-		return client, nil
-	}
-
-	if c.clients == nil {
-		c.clients = make(map[string]*openai.Client)
+	if ok && !isHTTPURL(toolName) && engine.IsDaemonRunning(client.url) {
+		return client.client, nil
 	}
 
 	if isHTTPURL(toolName) {
-		remoteClient, err := c.clientFromURL(toolName)
+		remoteClient, err := c.clientFromURL(ctx, toolName, env)
 		if err != nil {
 			return nil, err
 		}
-		c.clients[toolName] = remoteClient
+		c.clients[toolName] = clientInfo{
+			client: remoteClient,
+			url:    toolName,
+		}
 		return remoteClient, nil
 	}
 
-	prg, err := loader.Program(ctx, toolName, "")
+	prg, err := loader.Program(ctx, toolName, "", loader.Options{
+		Cache: c.cache,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	url, err := c.runner.Run(ctx, prg.SetBlocking(), c.envs, "")
+	url, err := c.runner.Run(engine.WithToolCategory(ctx, engine.ProviderToolCategory), prg.SetBlocking(), c.envs, "", runner.RunOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.HasSuffix(url, "/") {
-		url += "v1"
-	} else {
-		url += "/v1"
-	}
-
-	client, err = openai.NewClient(openai.Options{
-		BaseURL:  url,
+	oClient, err := openai.NewClient(ctx, c.credStore, openai.Options{
+		BaseURL:  strings.TrimSuffix(url, "/") + "/v1",
 		Cache:    c.cache,
 		CacheKey: prg.EntryToolID,
 	})
@@ -162,6 +180,23 @@ func (c *Client) load(ctx context.Context, toolName string) (*openai.Client, err
 		return nil, err
 	}
 
-	c.clients[toolName] = client
-	return client, nil
+	c.clients[toolName] = clientInfo{
+		client: oClient,
+		url:    url,
+	}
+	return oClient, nil
+}
+
+func (c *Client) retrieveAPIKey(ctx context.Context, env, url string, envs []string) (string, error) {
+	return prompt.GetModelProviderCredential(ctx, c.credStore, url, env, fmt.Sprintf("Please provide your API key for %s", url), append(envs, c.envs...))
+}
+
+func isLocalhost(url string) bool {
+	return strings.HasPrefix(url, "http://localhost") || strings.HasPrefix(url, "http://127.0.0.1") ||
+		strings.HasPrefix(url, "https://localhost") || strings.HasPrefix(url, "https://127.0.0.1")
+}
+
+type clientInfo struct {
+	client *openai.Client
+	url    string
 }

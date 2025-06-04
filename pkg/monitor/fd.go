@@ -22,7 +22,10 @@ type Event struct {
 }
 
 type fileFactory struct {
-	file *os.File
+	fileName     string
+	file         *os.File
+	lock         sync.Mutex
+	runningCount int
 }
 
 // NewFileFactory creates a new monitor factory that writes events to the location specified.
@@ -31,47 +34,79 @@ type fileFactory struct {
 // 2. a file name
 // 3. a named pipe in the form "\\.\pipe\my-pipe"
 func NewFileFactory(loc string) (runner.MonitorFactory, error) {
-	var (
-		file *os.File
-		err  error
-	)
-
-	if strings.HasPrefix(loc, "fd://") {
-		fd, err := strconv.Atoi(strings.TrimPrefix(loc, "fd://"))
-		if err != nil {
-			return nil, err
-		}
-
-		file = os.NewFile(uintptr(fd), "events")
-	} else {
-		file, err = os.OpenFile(loc, os.O_WRONLY|os.O_CREATE, 0)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &fileFactory{
-		file: file,
+		fileName: loc,
 	}, nil
 }
 
-func (s fileFactory) Start(_ context.Context, prg *types.Program, env []string, input string) (runner.Monitor, error) {
+func (s *fileFactory) Start(_ context.Context, prg *types.Program, env []string, input string) (runner.Monitor, error) {
+	s.lock.Lock()
+	s.runningCount++
+	if s.runningCount == 1 {
+		if err := s.openFile(); err != nil {
+			s.runningCount--
+			s.lock.Unlock()
+			return nil, err
+		}
+	}
+	s.lock.Unlock()
+
 	fd := &fd{
-		prj:   prg,
-		env:   env,
-		input: input,
-		file:  s.file,
+		prj:     prg,
+		env:     env,
+		input:   input,
+		file:    s.file,
+		factory: s,
 	}
 
 	fd.event(Event{
 		Event: runner.Event{
 			Time: time.Now(),
-			Type: "runStart",
+			Type: runner.EventTypeRunStart,
 		},
 		Program: prg,
 	})
 
 	return fd, nil
+}
+
+func (s *fileFactory) Pause() func() {
+	return func() {}
+}
+
+func (s *fileFactory) close() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.runningCount--
+	if s.runningCount == 0 {
+		if err := s.file.Close(); err != nil {
+			log.Errorf("error closing monitor file: %v", err)
+		}
+	}
+}
+
+func (s *fileFactory) openFile() error {
+	var (
+		err  error
+		file *os.File
+	)
+	if strings.HasPrefix(s.fileName, "fd://") {
+		fd, err := strconv.Atoi(strings.TrimPrefix(s.fileName, "fd://"))
+		if err != nil {
+			return err
+		}
+
+		file = os.NewFile(uintptr(fd), "events")
+	} else {
+		file, err = os.OpenFile(s.fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return err
+		}
+	}
+
+	s.file = file
+	return nil
 }
 
 type fd struct {
@@ -80,6 +115,7 @@ type fd struct {
 	input   string
 	file    *os.File
 	runLock sync.Mutex
+	factory *fileFactory
 }
 
 func (f *fd) Event(event runner.Event) {
@@ -103,11 +139,11 @@ func (f *fd) event(event Event) {
 	}
 }
 
-func (f *fd) Stop(output string, err error) {
+func (f *fd) Stop(_ context.Context, output string, err error) {
 	e := Event{
 		Event: runner.Event{
 			Time: time.Now(),
-			Type: "runFinish",
+			Type: runner.EventTypeRunFinish,
 		},
 		Input:  f.input,
 		Output: output,
@@ -117,9 +153,7 @@ func (f *fd) Stop(output string, err error) {
 	}
 
 	f.event(e)
-	if err = f.file.Close(); err != nil {
-		log.Errorf("Failed to close file: %v", err)
-	}
+	f.factory.close()
 }
 
 func (f *fd) Pause() func() {
